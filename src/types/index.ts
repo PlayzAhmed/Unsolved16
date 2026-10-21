@@ -23,6 +23,12 @@ export interface RooftopData {
   formattedAddress: string;
   polygonAreaM2?: number;
   staticMapUrl?: string;
+  polygonCoords?: { lat: number; lng: number }[];
+  meta?: {
+    areaSource?: "overpass_polygon" | "fallback_formula";
+    hasGoogleKey?: boolean;
+    zoom?: number;
+  };
 }
 
 export interface CalculateSolarParams {
