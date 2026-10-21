@@ -14,6 +14,7 @@ import { MetricsCards } from "@/components/metrics-cards";
 import { SolarSlider } from "@/components/solar-slider";
 import { MapPreview } from "@/components/map-preview";
 import { PdfReport } from "@/components/pdf-report";
+import { AddressSearch } from "@/components/address-search";
 import { Badge } from "@/components/ui/badge";
 import {
   MapPin,
@@ -25,6 +26,7 @@ import {
   TableProperties,
   ArrowLeft,
   Sparkles,
+  Search,
 } from "lucide-react";
 
 export function DashboardClient() {
@@ -46,13 +48,14 @@ export function DashboardClient() {
   const [transitionRatio, setTransitionRatio] = useState<number>(
     ratioParam ? Number(ratioParam) : 0.8
   );
-  const [address] = useState<string>(
+  const [address, setAddress] = useState<string>(
     addressParam ? decodeURIComponent(addressParam) : "المعادي، القاهرة"
   );
   const [meterNumber] = useState<string>(meterParam || "EGY-ME-90214");
   const [customerName] = useState<string>(
     customerParam ? decodeURIComponent(customerParam) : "مخبز المعادي التجاري"
   );
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
 
   const [showProjections, setShowProjections] = useState<boolean>(false);
   const [rooftopData, setRooftopData] = useState<RooftopData>({
@@ -60,6 +63,9 @@ export function DashboardClient() {
     lng: 31.2569,
     formattedAddress: address,
     polygonAreaM2: 280,
+    staticMapUrl: `/api/rooftop-image?lat=29.9602&lng=31.2569&area=280&address=${encodeURIComponent(
+      address
+    )}&zoom=18`,
   });
 
   // Calculate deterministic solar results
@@ -85,7 +91,7 @@ export function DashboardClient() {
     };
   }, [monthlySpendEgp, monthlyKwh, meterNumber, customerName]);
 
-  // Fetch geocoding data once for GIS rooftop area
+  // Fetch geocoding data once when address is initialized or modified
   useEffect(() => {
     let isMounted = true;
     async function fetchRooftop() {
@@ -101,11 +107,15 @@ export function DashboardClient() {
         }
       } catch {
         if (isMounted) {
+          const fallbackArea = estimateRoofAreaFallback(monthlyKwh) || 280;
           setRooftopData({
             lat: 29.9602,
             lng: 31.2569,
             formattedAddress: address,
-            polygonAreaM2: estimateRoofAreaFallback(monthlyKwh),
+            polygonAreaM2: fallbackArea,
+            staticMapUrl: `/api/rooftop-image?lat=29.9602&lng=31.2569&area=${fallbackArea}&address=${encodeURIComponent(
+              address
+            )}&zoom=18`,
           });
         }
       }
@@ -114,7 +124,7 @@ export function DashboardClient() {
     return () => {
       isMounted = false;
     };
-  }, [address, monthlyKwh]);
+  }, [address]);
 
   return (
     <div className="space-y-6">
@@ -125,10 +135,32 @@ export function DashboardClient() {
             <MapPin className="w-6 h-6 text-amber-400" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-white">{customerName || address}</h2>
-              <Badge variant="emerald">Audit Ready</Badge>
-            </div>
+            {isEditingLocation ? (
+              <div className="flex-1 max-w-xl min-w-[280px]">
+                <AddressSearch
+                  initialValue={address}
+                  onSelectAddress={(newAddr) => {
+                    setAddress(newAddr);
+                    setIsEditingLocation(false);
+                  }}
+                  autoFocus
+                  placeholder="Search new facility address..."
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-white">{customerName || address}</h2>
+                <Badge variant="emerald">Audit Ready</Badge>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingLocation(true)}
+                  className="p-1.5 rounded-lg border border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-emerald-400 transition-colors"
+                  title="Change facility address"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1">
               <span className="flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-slate-400" />

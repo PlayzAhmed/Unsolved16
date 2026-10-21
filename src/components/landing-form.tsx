@@ -3,9 +3,10 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BillUploader } from "@/components/bill-uploader";
+import { AddressSearch } from "@/components/address-search";
 import { calculateKwhFromEgp } from "@/lib/egypt-tariffs";
 import type { BillData } from "@/types";
-import { MapPin, Search, ArrowRight, Sparkles, Calculator } from "lucide-react";
+import { MapPin, ArrowRight, Sparkles, Calculator } from "lucide-react";
 import Link from "next/link";
 
 const QUICK_LOCATIONS = [
@@ -44,24 +45,19 @@ export function LandingForm() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {/* 1. Address Search Bar */}
-      <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
+      {/* 1. Address Search Bar with Real-Time Suggestions */}
+      <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 shadow-xl backdrop-blur-sm relative z-20">
         <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-1.5">
           <MapPin className="w-4 h-4 text-amber-400" />
           Step 1: Enter Commercial Facility Address (Egypt)
         </label>
-        <div className="flex gap-2 mt-1">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleGenerateAudit()}
-              placeholder="e.g. المعادي، القاهرة or المنطقة الصناعية، العاشر من رمضان"
-              className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-            />
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-          </div>
+        
+        <div className="mt-1">
+          <AddressSearch
+            initialValue={address}
+            onSelectAddress={(newAddress) => setAddress(newAddress)}
+            placeholder="Search address e.g. المعادي، القاهرة or العاشر من رمضان"
+          />
         </div>
 
         {/* Quick select pills */}
