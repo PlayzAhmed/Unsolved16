@@ -264,7 +264,7 @@ export function BankProposalDocument({
         {/* Footer */}
         <View style={styles.footer}>
           <Text>EnergyTwin AI - Zero-Hardware Solar Feasibility Evaluator (SolveThe17)</Text>
-          <Text>Compliant with Egyptian Solar Tariffs & Regulations</Text>
+          <Text>Calibrated with EgyptERA April 2026 Commercial Electricity Tariffs</Text>
         </View>
       </Page>
     </Document>

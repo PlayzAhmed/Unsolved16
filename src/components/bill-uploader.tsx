@@ -26,21 +26,21 @@ const DEMO_BILLS = [
   {
     name: "مخبز المعادي",
     spend: 3850,
-    kwh: 1950,
+    kwh: 1366,
     meter: "EGY-ME-90214",
     desc: "Commercial Bakery",
   },
   {
     name: "مصنع العاشر",
     spend: 14200,
-    kwh: 6400,
+    kwh: 5075,
     meter: "EGY-10TH-3490",
     desc: "Light Manufacturing",
   },
   {
     name: "عيادات مدينة نصر",
     spend: 6500,
-    kwh: 3100,
+    kwh: 2315,
     meter: "EGY-NC-5821",
     desc: "Medical Center",
   },
@@ -88,7 +88,7 @@ export function BillUploader({
     } catch {
       // Graceful fallback to default demo
       onSpendChange(3850);
-      onKwhChange(1950);
+      onKwhChange(1366);
     } finally {
       setIsProcessing(false);
     }

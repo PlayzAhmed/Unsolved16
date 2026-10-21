@@ -1,8 +1,8 @@
 import React from "react";
 import { Navbar } from "@/components/navbar";
 import { SolarCalculator } from "@/components/solar-calculator";
-import { EGYPT_COMMERCIAL_TARIFFS } from "@/lib/egypt-tariffs";
-import { Calculator, Info, ShieldCheck, Zap } from "lucide-react";
+import { EGYPT_COMMERCIAL_TARIFFS, EGYPT_ERA_TARIFF_URL, EGYPT_ERA_EFFECTIVE_DATE } from "@/lib/egypt-tariffs";
+import { Calculator, Info, ShieldCheck, Zap, ExternalLink } from "lucide-react";
 
 export const metadata = {
   title: "Solar Calculator | EnergyTwin AI",
@@ -39,32 +39,50 @@ export default function CalculatorPage() {
 
         {/* Egyptian Commercial Electricity Tariffs Reference Guide */}
         <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Info className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-sm font-bold text-slate-200">
-              Egyptian Commercial Electricity Tariffs (Sliding Scale Brackets)
-            </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-sm font-bold text-slate-200">
+                Official Egyptian Commercial Electricity Tariffs ({EGYPT_ERA_EFFECTIVE_DATE})
+              </h3>
+            </div>
+            <a
+              href={EGYPT_ERA_TARIFF_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 underline transition-colors"
+            >
+              <span>Verify on EgyptERA Official Portal</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
           </div>
           <p className="text-xs text-slate-400 mb-4">
-            Tariffs officially regulated by the Egyptian Electric Utility and Consumer Protection Regulatory Agency (EgyptERA):
+            Tariffs officially regulated by the Egyptian Electric Utility and Consumer Protection Regulatory Agency (EgyptERA) for low-voltage commercial establishments:
           </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
             {EGYPT_COMMERCIAL_TARIFFS.map((tier, idx) => (
               <div
                 key={idx}
-                className="p-3 rounded-xl bg-slate-900/60 border border-slate-700/40 text-xs"
+                className="p-3 rounded-xl bg-slate-900/60 border border-slate-700/40 text-xs flex flex-col justify-between"
               >
-                <div className="text-[11px] font-semibold text-slate-400">
-                  Tier {idx + 1}
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-400">
+                    Tier {idx + 1}
+                  </div>
+                  <div className="text-sm font-bold text-slate-200 mt-0.5">
+                    {tier.maxKwh === Infinity
+                      ? `> ${tier.minKwh} kWh`
+                      : `${tier.minKwh} - ${tier.maxKwh} kWh`}
+                  </div>
                 </div>
-                <div className="text-sm font-bold text-slate-200 mt-0.5">
-                  {tier.maxKwh === Infinity
-                    ? `> ${tier.minKwh} kWh`
-                    : `${tier.minKwh} - ${tier.maxKwh} kWh`}
-                </div>
-                <div className="text-xs font-extrabold text-emerald-400 mt-1">
-                  {tier.ratePerKwhEgp.toFixed(2)} EGP / kWh
+                <div className="mt-2 pt-2 border-t border-slate-800">
+                  <div className="text-xs font-extrabold text-emerald-400">
+                    {tier.ratePerKwhEgp.toFixed(2)} EGP / kWh
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    {tier.ratePerKwhPt.toFixed(1)} Pt • +{tier.customerServiceFeeEgp} EGP fee
+                  </div>
                 </div>
               </div>
             ))}
