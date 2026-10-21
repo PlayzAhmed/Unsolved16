@@ -21,11 +21,13 @@ export function LandingForm() {
   const [spendEgp, setSpendEgp] = useState(3850);
   const [monthlyKwh, setMonthlyKwh] = useState(calculateKwhFromEgp(3850));
   const [meterNumber, setMeterNumber] = useState("EGY-ME-90214");
+  const [customerName, setCustomerName] = useState("مخبز المعادي التجاري");
 
   const handleBillParsed = (data: BillData) => {
     if (data.totalCostEgp) setSpendEgp(data.totalCostEgp);
     if (data.kwhConsumption) setMonthlyKwh(data.kwhConsumption);
     if (data.meterNumber) setMeterNumber(data.meterNumber);
+    if (data.customerName) setCustomerName(data.customerName);
   };
 
   const handleGenerateAudit = () => {
@@ -34,6 +36,7 @@ export function LandingForm() {
       spend: String(spendEgp),
       kwh: String(Math.round(monthlyKwh)),
       meter: meterNumber,
+      customer: customerName,
       ratio: "0.8",
     });
     router.push(`/dashboard?${params.toString()}`);

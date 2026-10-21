@@ -35,6 +35,7 @@ export function DashboardClient() {
   const ratioParam = searchParams.get("ratio");
   const addressParam = searchParams.get("address");
   const meterParam = searchParams.get("meter");
+  const customerParam = searchParams.get("customer");
 
   const [monthlySpendEgp, setMonthlySpendEgp] = useState<number>(
     spendParam ? Number(spendParam) : 3850
@@ -49,6 +50,9 @@ export function DashboardClient() {
     addressParam ? decodeURIComponent(addressParam) : "المعادي، القاهرة"
   );
   const [meterNumber] = useState<string>(meterParam || "EGY-ME-90214");
+  const [customerName] = useState<string>(
+    customerParam ? decodeURIComponent(customerParam) : "مخبز المعادي التجاري"
+  );
 
   const [showProjections, setShowProjections] = useState<boolean>(false);
   const [rooftopData, setRooftopData] = useState<RooftopData>({
@@ -77,8 +81,9 @@ export function DashboardClient() {
       totalCostEgp: monthlySpendEgp,
       kwhConsumption: monthlyKwh,
       meterNumber,
+      customerName,
     };
-  }, [monthlySpendEgp, monthlyKwh, meterNumber]);
+  }, [monthlySpendEgp, monthlyKwh, meterNumber, customerName]);
 
   // Fetch geocoding data once for GIS rooftop area
   useEffect(() => {
@@ -121,10 +126,15 @@ export function DashboardClient() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-white">{address}</h2>
+              <h2 className="text-xl font-bold text-white">{customerName || address}</h2>
               <Badge variant="emerald">Audit Ready</Badge>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1">
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                {address}
+              </span>
+              <span>•</span>
               <span className="flex items-center gap-1">
                 <FileText className="w-3.5 h-3.5 text-slate-400" />
                 Meter ID: <strong className="text-slate-200">{meterNumber}</strong>

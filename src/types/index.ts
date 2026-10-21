@@ -15,6 +15,10 @@ export interface BillData {
   meterNumber?: string;
   customerName?: string;
   confidence?: number;
+  lowConfidence?: boolean;
+  extractedText?: string;
+  source?: "gemini" | "vision" | "tesseract" | "pdf_text" | "regex" | "fallback" | "demo";
+  warning?: string;
 }
 
 export interface RooftopData {
