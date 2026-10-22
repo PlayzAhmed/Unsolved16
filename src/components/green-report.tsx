@@ -5,8 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import { calculateSolarSavings } from '@/lib/solar-calculator';
 import { calculateKwhFromEgp } from '@/lib/egypt-tariffs';
 import type { RooftopData, BillData } from '@/types';
-import { BankProposalDocument } from '@/components/pdf-report';
+import { BankProposalDocument, createReportMeta } from '@/components/pdf-report';
 import { AppIcon } from '@/components/ui/app-icon';
+import { cn } from '@/lib/utils';
 
 export function GreenReport() {
   const searchParams = useSearchParams();
@@ -30,6 +31,7 @@ export function GreenReport() {
   const lng = lngParam ? Number(lngParam) : 31.2118;
 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [showSchedule, setShowSchedule] = useState(false);
 
   const solarResult = useMemo(() => {
@@ -69,9 +71,11 @@ export function GreenReport() {
 
   const handleDownloadPdf = async () => {
     if (isGeneratingPdf) return;
+    setPdfError(null);
     try {
       setIsGeneratingPdf(true);
       const { pdf } = await import('@react-pdf/renderer');
+      const meta = createReportMeta(new Date(), reportId);
       const issuedAt = new Date();
       const dateStr = issuedAt.toLocaleDateString('ar-EG', {
         year: 'numeric',
@@ -84,6 +88,7 @@ export function GreenReport() {
           solarResult={solarResult}
           billData={billData}
           rooftopData={rooftopData}
+          meta={meta}
           dateStr={dateStr}
           refNumber={refNumber}
         />
@@ -95,10 +100,11 @@ export function GreenReport() {
       link.download = `تقرير_التمويل_الأخضر_${reportId}.pdf`;
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error('PDF generation error:', err);
+      setPdfError('تعذر إنشاء ملف PDF. من فضلك حاول مرة أخرى.');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -375,7 +381,7 @@ export function GreenReport() {
         </div>
         <div className="flex flex-col min-w-0">
           <span className="text-body-sm font-body-sm text-on-surface font-semibold truncate">
-            "التقرير ده هو اللي البنك طلبه بالظبط لتمويل الـ 5%."
+            &quot;التقرير ده هو اللي البنك طلبه بالظبط لتمويل الـ 5%.&quot;
           </span>
           <span className="text-label-sm font-label-sm text-on-surface-variant">الحاج جابر البركة - مالك المنشأة</span>
         </div>
@@ -402,6 +408,12 @@ export function GreenReport() {
             </>
           )}
         </button>
+
+        {pdfError && (
+          <p role="alert" className="text-label-sm font-label-sm font-semibold text-error text-center">
+            {pdfError}
+          </p>
+        )}
 
         {/* WhatsApp & Print Row */}
         <div className="grid grid-cols-2 gap-2">

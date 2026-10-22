@@ -22,20 +22,23 @@ import {
 import { cn } from "@/lib/utils";
 import { FileText, Loader2 } from "lucide-react";
 
-// Register Arabic-supporting font for react-pdf
+// Register a locally bundled Arabic font so PDF generation never depends on a remote CDN.
 Font.register({
   family: "Cairo",
   fonts: [
     {
-      src: "https://fonts.gstatic.com/ea/cairo/v2/Cairo-Regular.ttf",
+      src: "/fonts/Cairo-Regular.ttf",
       fontWeight: "normal",
     },
     {
-      src: "https://fonts.gstatic.com/ea/cairo/v2/Cairo-Bold.ttf",
+      src: "/fonts/Cairo-Bold.ttf",
       fontWeight: "bold",
     },
   ],
 });
+
+// Prevent long Arabic words from being split with hyphens in generated documents.
+Font.registerHyphenationCallback((word) => [word]);
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +47,30 @@ export interface PdfReportProps {
   billData?: BillData;
   rooftopData?: RooftopData;
   className?: string;
+}
+
+export interface ReportMeta {
+  dateStr: string;
+  refNumber: string;
+}
+
+/**
+ * Builds the document date and reference number.
+ * Must only be called from an event handler (not during render) because it reads the clock.
+ */
+export function createReportMeta(
+  now: Date = new Date(),
+  refNumber?: string
+): ReportMeta {
+  return {
+    dateStr: now.toLocaleDateString("ar-EG", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }),
+    refNumber:
+      refNumber ?? `ET-${now.getFullYear()}-${String(now.getTime()).slice(-6)}`,
+  };
 }
 
 // ─── Brand Colour Palette ─────────────────────────────────────────────────────
@@ -311,6 +338,7 @@ const s = StyleSheet.create({
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(n: number): string {
+  if (!Number.isFinite(n)) return "—";
   return n.toLocaleString("en-EG");
 }
 
@@ -358,7 +386,9 @@ function PageOne({
   netValue25Yr: number;
 }) {
   const monthlyKwh = billData?.kwhConsumption ?? Math.round(solarResult.roofAreaRequiredM2 * 15);
-  const blendedRate = monthlyKwh > 0 ? ((billData?.totalCostEgp ?? 0) / monthlyKwh).toFixed(3) : "—";
+  const monthlySpend = billData?.totalCostEgp ?? 0;
+  const blendedRate =
+    monthlyKwh > 0 && monthlySpend > 0 ? (monthlySpend / monthlyKwh).toFixed(3) : "—";
 
   return (
     <Page size="A4" style={s.page}>
@@ -570,14 +600,10 @@ function PageOne({
 // ─── Page 2: Cash-Flow Projections + Tariff Reference + Signature ────────────
 
 function PageTwo({
-  solarResult,
-  billData,
   cashFlows,
   dateStr,
   refNumber,
 }: {
-  solarResult: SolarResult;
-  billData?: BillData;
   cashFlows: AnnualCashFlow[];
   dateStr: string;
   refNumber: string;
@@ -711,10 +737,14 @@ export function BankProposalDocument({
   rooftopData,
   dateStr,
   refNumber,
+  meta,
 }: {
   solarResult: SolarResult;
   billData?: BillData;
   rooftopData?: RooftopData;
+  meta: ReportMeta;
+}) {
+  const { dateStr, refNumber } = meta;
   dateStr: string;
   refNumber: string;
 }) {
@@ -741,8 +771,6 @@ export function BankProposalDocument({
         netValue25Yr={netValue25Yr}
       />
       <PageTwo
-        solarResult={solarResult}
-        billData={billData}
         cashFlows={cashFlows}
         dateStr={dateStr}
         refNumber={refNumber}
@@ -767,11 +795,14 @@ export function PdfReport({
     () => false
   );
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleDownloadPdf = async () => {
     if (isGenerating) return;
+    setError(null);
     try {
       setIsGenerating(true);
+      const meta = createReportMeta();
       const issuedAt = new Date();
       const dateStr = issuedAt.toLocaleDateString("ar-EG", {
         year: "numeric",
@@ -786,6 +817,7 @@ export function PdfReport({
           rooftopData={rooftopData}
           dateStr={dateStr}
           refNumber={refNumber}
+          meta={meta}
         />
       );
       const blob = await pdf(doc).toBlob();
@@ -795,13 +827,14 @@ export function PdfReport({
       const addressSlug = (rooftopData?.formattedAddress ?? "Cairo")
         .replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, "_")
         .slice(0, 30);
-      link.download = `تقرير_طاقة_شمسية_للبنك_${addressSlug}_${Date.now()}.pdf`;
+      link.download = `تقرير_طاقة_شمسية_للبنك_${addressSlug}_${meta.refNumber}.pdf`;
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error("PDF generation error:", err);
+      setError("تعذر إنشاء ملف PDF. من فضلك حاول مرة أخرى.");
     } finally {
       setIsGenerating(false);
     }
@@ -820,28 +853,35 @@ export function PdfReport({
   }
 
   return (
-    <button
-      onClick={handleDownloadPdf}
-      disabled={isGenerating}
-      style={{
-        background: "linear-gradient(135deg, #FFC93C 0%, #FF8A3D 100%)",
-      }}
-      className={cn(
-        "inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-ink font-black text-sm shadow-md shadow-sunset/25 hover:shadow-lg hover:scale-[1.02] active:scale-95 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer",
-        className
+    <div className="inline-flex flex-col items-end gap-1">
+      <button
+        onClick={handleDownloadPdf}
+        disabled={isGenerating}
+        style={{
+          background: "linear-gradient(135deg, #FFC93C 0%, #FF8A3D 100%)",
+        }}
+        className={cn(
+          "inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-ink font-black text-sm shadow-md shadow-sunset/25 hover:shadow-lg hover:scale-[1.02] active:scale-95 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer",
+          className
+        )}
+      >
+        {isGenerating ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin text-ink" />
+            <span>بنجهز التقرير...</span>
+          </>
+        ) : (
+          <>
+            <FileText className="w-4 h-4 text-ink" />
+            <span>📄 جاهز للبنك</span>
+          </>
+        )}
+      </button>
+      {error && (
+        <span role="alert" className="text-[11px] font-semibold text-error">
+          {error}
+        </span>
       )}
-    >
-      {isGenerating ? (
-        <>
-          <Loader2 className="w-4 h-4 animate-spin text-ink" />
-          <span>بنجهز التقرير...</span>
-        </>
-      ) : (
-        <>
-          <FileText className="w-4 h-4 text-ink" />
-          <span>📄 جاهز للبنك</span>
-        </>
-      )}
-    </button>
+    </div>
   );
 }
