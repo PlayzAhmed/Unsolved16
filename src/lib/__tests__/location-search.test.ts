@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isValidCoordinates, resolveAddress } from "../location-search.ts";
+import { isValidCoordinates, resolveAddress } from "../location-search";
 
 test("uses exact aliases for known demo locations", async () => {
   let requests = 0;

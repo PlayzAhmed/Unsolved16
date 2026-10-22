@@ -13,14 +13,17 @@ export function LandingForm() {
   const [spendEgp, setSpendEgp] = useState(4120);
   const [monthlyKwh, setMonthlyKwh] = useState(1450);
   const [meterNumber, setMeterNumber] = useState('EGY-ME-90214');
+  const [customerName, setCustomerName] = useState('');
 
   const handleBillParsed = (data: BillData) => {
     if (data.totalCostEgp) setSpendEgp(data.totalCostEgp);
     if (data.kwhConsumption) setMonthlyKwh(data.kwhConsumption);
     if (data.meterNumber) setMeterNumber(data.meterNumber);
+    if (data.customerName) setCustomerName(data.customerName);
   };
 
   const handleRoofConfirmed = (rooftopData: RooftopData) => {
+    const businessName = rooftopData.meta?.businessName || customerName;
     const params = new URLSearchParams({
       address: rooftopData.formattedAddress,
       spend: String(spendEgp),
@@ -31,6 +34,8 @@ export function LandingForm() {
       lat: String(rooftopData.lat),
       lng: String(rooftopData.lng),
     });
+    if (businessName) params.set('name', businessName);
+    if (rooftopData.staticMapUrl) params.set('mapUrl', encodeURIComponent(rooftopData.staticMapUrl));
     router.push(`/dashboard?${params.toString()}`);
   };
 

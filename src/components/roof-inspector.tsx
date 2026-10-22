@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import type { RooftopData } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, buildStaticMapUrl } from '@/lib/utils';
 import { AppIcon } from '@/components/ui/app-icon';
 
 export interface RoofInspectorProps {
@@ -20,16 +20,17 @@ export function RoofInspector({
   onBack,
   className,
 }: RoofInspectorProps) {
-  const [address, setAddress] = useState('شارع مصدق، الدقي، الجيزة (مخبز البركة)');
+  const [address, setAddress] = useState('');
   const [manualAreaM2, setManualAreaM2] = useState(180);
   const [isLoadingGeo, setIsLoadingGeo] = useState(false);
   const [rooftopData, setRooftopData] = useState<RooftopData>({
-    lat: 30.0384,
-    lng: 31.2118,
-    formattedAddress: 'شارع مصدق، الدقي، الجيزة (مخبز البركة)',
+    lat: 30.0444,
+    lng: 31.2357,
+    formattedAddress: '',
     polygonAreaM2: 180,
-    staticMapUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0PS5hO6t4R7MFK8i9is3eD4S8x-EAePtZtAwbXetoXbZgvHCudt3bK0IR51KwcX0Hhv074KKO_zJ7Z4iBvMdKjrDMXI0OX9G8BpKGk_QQ_l1baAOGS3pcfEGR6SUMECudMsjs-pGRhq6I-JtF5uOK-vDb4aQcY8CoR3dwgQDnEWRpyTJi5TYmFoZqHTcgMrIWmEFvz9UB1sqRUETa7uQt5jB-zEbBhfxwcAEKSf07bbJl0dUOeCDn',
+    staticMapUrl: '',
   });
+  const [businessName, setBusinessName] = useState('');
 
   // Capacity calculation (~9 m² per 1 kW)
   const capacityKw = Math.round(manualAreaM2 / 9);
@@ -51,9 +52,11 @@ export function RoofInspector({
       });
       const json = await res.json();
       if (json.success && json.data) {
-        setRooftopData(json.data);
-        if (json.data.polygonAreaM2) {
-          setManualAreaM2(Math.round(json.data.polygonAreaM2));
+        const data: RooftopData = json.data;
+        const mapUrl = data.staticMapUrl || buildStaticMapUrl(data.lat, data.lng);
+        setRooftopData({ ...data, staticMapUrl: mapUrl });
+        if (data.polygonAreaM2) {
+          setManualAreaM2(Math.round(data.polygonAreaM2));
         }
       }
     } catch {
@@ -81,10 +84,17 @@ export function RoofInspector({
   };
 
   const handleProceed = () => {
+    const finalStaticMapUrl =
+      rooftopData.staticMapUrl || buildStaticMapUrl(rooftopData.lat, rooftopData.lng);
     onConfirm({
       ...rooftopData,
-      formattedAddress: address,
+      formattedAddress: address || rooftopData.formattedAddress,
       polygonAreaM2: manualAreaM2,
+      staticMapUrl: finalStaticMapUrl,
+      meta: {
+        ...rooftopData.meta,
+        businessName: businessName.trim() || undefined,
+      },
     });
   };
 
@@ -227,6 +237,23 @@ export function RoofInspector({
             <span>المعادي، القاهرة</span>
           </button>
         </div>
+
+        {/* Business Name Input */}
+        <div className="flex flex-col gap-1 pt-1">
+          <label className="font-label-sm text-label-sm text-on-surface-variant font-medium">
+            اسم المنشأة التجارية <span className="text-outline">(اختياري)</span>
+          </label>
+          <div className="flex items-center bg-surface-container-low rounded-xl px-3 h-10 shadow-inner">
+            <AppIcon name="store" className="text-outline shrink-0 ml-2" size={18} />
+            <input
+              className="bg-transparent border-0 outline-none w-full font-body-sm text-body-sm text-on-surface placeholder:text-outline"
+              placeholder="مثال: مخبز البركة، ورشة المعادي..."
+              type="text"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Interactive Satellite Rooftop Map Card */}
@@ -245,12 +272,21 @@ export function RoofInspector({
 
         {/* Map Viewport Container */}
         <div className="relative w-full h-64 rounded-xl overflow-hidden shadow-inner bg-surface-dim">
-          <div
-            className="w-full h-full bg-cover bg-center transition-all duration-300"
-            style={{
-              backgroundImage: `url('${rooftopData.staticMapUrl || 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0PS5hO6t4R7MFK8i9is3eD4S8x-EAePtZtAwbXetoXbZgvHCudt3bK0IR51KwcX0Hhv074KKO_zJ7Z4iBvMdKjrDMXI0OX9G8BpKGk_QQ_l1baAOGS3pcfEGR6SUMECudMsjs-pGRhq6I-JtF5uOK-vDb4aQcY8CoR3dwgQDnEWRpyTJi5TYmFoZqHTcgMrIWmEFvz9UB1sqRUETa7uQt5jB-zEbBhfxwcAEKSf07bbJl0dUOeCDn'}')`,
-            }}
-          ></div>
+          {rooftopData.staticMapUrl ? (
+            <div
+              className="w-full h-full bg-cover bg-center transition-all duration-300"
+              style={{
+                backgroundImage: `url('${rooftopData.staticMapUrl}')`,
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-on-surface-variant bg-gradient-to-br from-surface-container to-surface-dim">
+              <AppIcon name="map" size={40} className="opacity-30" />
+              <span className="text-label-sm font-label-sm text-center px-4 opacity-60">
+                أدخل عنوان محلّك لعرض خريطة السطح
+              </span>
+            </div>
+          )}
 
           {/* Rooftop Solar Polygon Layer (Vector Overlay SVG) */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 400 300">
@@ -434,7 +470,13 @@ export function RoofInspector({
         <button
           type="button"
           onClick={handleProceed}
-          className="w-full h-14 bg-secondary-container hover:bg-secondary-fixed-dim text-on-secondary-container rounded-xl font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-secondary-container/20 active:scale-[0.98] transition-all cursor-pointer"
+          disabled={!address.trim()}
+          className={cn(
+            'w-full h-14 rounded-2xl font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-transform cursor-pointer',
+            address.trim()
+              ? 'bg-secondary-container text-on-secondary-container'
+              : 'bg-surface-container-highest text-outline cursor-not-allowed opacity-60'
+          )}
         >
           <AppIcon name="wb_sunny" size={24} />
           <span>احسب التوفير وافتح لوحة التحكم</span>

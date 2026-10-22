@@ -35,6 +35,7 @@ export interface RooftopData {
     areaSource?: "overpass_polygon" | "fallback_formula";
     hasGoogleKey?: boolean;
     zoom?: number;
+    businessName?: string;
   };
 }
 

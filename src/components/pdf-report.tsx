@@ -735,8 +735,6 @@ export function BankProposalDocument({
   solarResult,
   billData,
   rooftopData,
-  dateStr,
-  refNumber,
   meta,
 }: {
   solarResult: SolarResult;
@@ -745,9 +743,6 @@ export function BankProposalDocument({
   meta: ReportMeta;
 }) {
   const { dateStr, refNumber } = meta;
-  dateStr: string;
-  refNumber: string;
-}) {
   const annualYieldKwh = Math.round(solarResult.systemCapacityKwp * 5 * 365);
   const cashFlows = calculate25YearProjection(solarResult, (billData?.totalCostEgp ?? 3850) * 12);
   const lastCf = cashFlows[24];
@@ -815,8 +810,6 @@ export function PdfReport({
           solarResult={solarResult}
           billData={billData}
           rooftopData={rooftopData}
-          dateStr={dateStr}
-          refNumber={refNumber}
           meta={meta}
         />
       );

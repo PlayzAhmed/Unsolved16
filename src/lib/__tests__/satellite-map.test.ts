@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildEsriTileUrl, buildRooftopImageUrl, clampRooftopZoom } from "../satellite-map.ts";
+import { buildEsriTileUrl, buildRooftopImageUrl, clampRooftopZoom } from "../satellite-map";
 
 test("satellite and hybrid label layers target the same tile", () => {
   const imageryUrl = new URL(buildEsriTileUrl(30.05, 31.2, 18, "imagery"));

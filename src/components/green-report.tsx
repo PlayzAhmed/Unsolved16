@@ -7,7 +7,7 @@ import { calculateKwhFromEgp } from '@/lib/egypt-tariffs';
 import type { RooftopData, BillData } from '@/types';
 import { BankProposalDocument, createReportMeta } from '@/components/pdf-report';
 import { AppIcon } from '@/components/ui/app-icon';
-import { cn } from '@/lib/utils';
+import { cn, buildStaticMapUrl } from '@/lib/utils';
 
 export function GreenReport() {
   const searchParams = useSearchParams();
@@ -20,15 +20,18 @@ export function GreenReport() {
   const areaParam = searchParams.get('area');
   const latParam = searchParams.get('lat');
   const lngParam = searchParams.get('lng');
+  const nameParam = searchParams.get('name');
+  const mapUrlParam = searchParams.get('mapUrl');
 
   const monthlySpendEgp = spendParam ? Number(spendParam) : 4120;
   const monthlyKwh = kwhParam ? Number(kwhParam) : calculateKwhFromEgp(monthlySpendEgp);
   const transitionRatio = ratioParam ? Number(ratioParam) : 0.8;
-  const address = addressParam ? decodeURIComponent(addressParam) : 'شارع مصدق، الدقي، الجيزة (مخبز البركة)';
+  const address = addressParam ? decodeURIComponent(addressParam) : 'عنوان المنشأة';
+  const customerName = nameParam ? decodeURIComponent(nameParam) : '';
   const meterNumber = meterParam || 'EGY-ME-90214';
   const areaM2 = areaParam ? Number(areaParam) : 180;
-  const lat = latParam ? Number(latParam) : 30.0384;
-  const lng = lngParam ? Number(lngParam) : 31.2118;
+  const lat = latParam ? Number(latParam) : 30.0444;
+  const lng = lngParam ? Number(lngParam) : 31.2357;
 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -47,9 +50,13 @@ export function GreenReport() {
       totalCostEgp: monthlySpendEgp,
       kwhConsumption: monthlyKwh,
       meterNumber,
-      customerName: 'مخبز وحلواني البركة',
+      customerName: customerName || undefined,
     };
-  }, [monthlySpendEgp, monthlyKwh, meterNumber]);
+  }, [monthlySpendEgp, monthlyKwh, meterNumber, customerName]);
+
+  const staticMapUrl = mapUrlParam
+    ? decodeURIComponent(mapUrlParam)
+    : (latParam && lngParam ? buildStaticMapUrl(lat, lng) : '');
 
   const rooftopData: RooftopData = useMemo(() => {
     return {
@@ -57,9 +64,9 @@ export function GreenReport() {
       lng,
       formattedAddress: address,
       polygonAreaM2: areaM2,
-      staticMapUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0PS5hO6t4R7MFK8i9is3eD4S8x-EAePtZtAwbXetoXbZgvHCudt3bK0IR51KwcX0Hhv074KKO_zJ7Z4iBvMdKjrDMXI0OX9G8BpKGk_QQ_l1baAOGS3pcfEGR6SUMECudMsjs-pGRhq6I-JtF5uOK-vDb4aQcY8CoR3dwgQDnEWRpyTJi5TYmFoZqHTcgMrIWmEFvz9UB1sqRUETa7uQt5jB-zEbBhfxwcAEKSf07bbJl0dUOeCDn',
+      staticMapUrl,
     };
-  }, [lat, lng, address, areaM2]);
+  }, [lat, lng, address, areaM2, staticMapUrl]);
 
   // Loan calculation (5% annual, 36 months subsidized CBE green initiative)
   const monthlyLoanPayment = Math.round(
@@ -76,21 +83,12 @@ export function GreenReport() {
       setIsGeneratingPdf(true);
       const { pdf } = await import('@react-pdf/renderer');
       const meta = createReportMeta(new Date(), reportId);
-      const issuedAt = new Date();
-      const dateStr = issuedAt.toLocaleDateString('ar-EG', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-      const refNumber = `ET-${issuedAt.getFullYear()}-${String(issuedAt.getTime()).slice(-6)}`;
       const doc = (
         <BankProposalDocument
           solarResult={solarResult}
           billData={billData}
           rooftopData={rooftopData}
           meta={meta}
-          dateStr={dateStr}
-          refNumber={refNumber}
         />
       );
       const blob = await pdf(doc).toBlob();
@@ -143,7 +141,7 @@ export function GreenReport() {
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
             موثق رقمياً ومسجل رسمياً
           </span>
-          <span>تاريخ الصدور: اليوم (معتمد)</span>
+          <span>تاريخ الصدور: {new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
         </div>
       </div>
 
@@ -178,11 +176,11 @@ export function GreenReport() {
           <div className="bg-surface-container-low rounded-lg p-3 space-y-2">
             <div className="flex justify-between items-center text-body-sm font-body-sm">
               <span className="text-on-surface-variant">اسم المنشأة التجاري:</span>
-              <span className="font-bold text-on-surface">مخبز وحلواني البركة</span>
+              <span className="font-bold text-on-surface">{customerName || 'المنشأة التجارية'}</span>
             </div>
             <div className="flex justify-between items-center text-body-sm font-body-sm">
               <span className="text-on-surface-variant">السجل التجاري (س.ت):</span>
-              <span className="font-mono font-medium text-on-surface">489211 - الجيزة</span>
+              <span className="font-mono font-medium text-on-surface text-on-surface-variant">يُقدَّم عند التقديم للبنك</span>
             </div>
             <div className="flex justify-between items-center text-body-sm font-body-sm">
               <span className="text-on-surface-variant">الموقع الجغرافي:</span>
@@ -203,11 +201,17 @@ export function GreenReport() {
 
         {/* Roof Satellite Image Preview Placeholder */}
         <div className="relative rounded-lg overflow-hidden h-36 bg-surface-container">
-          <img
-            className="w-full h-full object-cover"
-            alt="المعاينة الهندسية لسطح المنشأة بالأقمار الصناعية"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCME2ZQHFokz9eDTvoq5UfQfd8mX73gIWYOk97w0Gta4GyzmYKl-B4yyPWx70DkRSnzpU6gNMpCyFVWVLLhsDfC2TqenYbVyTkK_L5Jgo-u5Q2Sc76qTUXmWM2nTAL4RawpJjB7BYNJRAO6jYnY26byRhquKXYqC2FfAtBQqp0-HlZpGfWESGZn16KmhWaHO24--Z39LYWcSJpNCYkrhDh8glPoW3iiacjJP5Gb2D1PfD7C-HuDIfBH"
-          />
+          {staticMapUrl ? (
+            <img
+              className="w-full h-full object-cover"
+              alt="المعاينة الهندسية لسطح المنشأة بالأقمار الصناعية"
+              src={staticMapUrl}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-surface-container to-surface-dim">
+              <AppIcon name="map" size={48} className="text-outline opacity-40" />
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-on-surface/80 via-transparent to-transparent flex items-end p-3">
             <div className="flex items-center justify-between w-full text-surface-container-lowest">
               <span className="text-label-sm font-label-sm flex items-center gap-1 font-medium">

@@ -11,7 +11,7 @@ import { calculateKwhFromEgp } from '@/lib/egypt-tariffs';
 import type { RooftopData, BillData } from '@/types';
 import { SolarSlider } from '@/components/solar-slider';
 import { AppIcon } from '@/components/ui/app-icon';
-import { cn } from '@/lib/utils';
+import { cn, buildStaticMapUrl } from '@/lib/utils';
 
 export function DashboardClient() {
   const router = useRouter();
@@ -25,6 +25,8 @@ export function DashboardClient() {
   const areaParam = searchParams.get('area');
   const latParam = searchParams.get('lat');
   const lngParam = searchParams.get('lng');
+  const nameParam = searchParams.get('name');
+  const mapUrlParam = searchParams.get('mapUrl');
 
   const [monthlySpendEgp, setMonthlySpendEgp] = useState<number>(
     spendParam ? Number(spendParam) : 4120
@@ -36,20 +38,25 @@ export function DashboardClient() {
     ratioParam ? Number(ratioParam) : 0.8
   );
   const [address] = useState<string>(
-    addressParam ? decodeURIComponent(addressParam) : 'شارع مصدق، الدقي، الجيزة (مخبز البركة)'
+    addressParam ? decodeURIComponent(addressParam) : 'عنوان المنشأة'
   );
+  const [customerName] = useState<string>(nameParam ? decodeURIComponent(nameParam) : '');
   const [meterNumber] = useState<string>(meterParam || 'EGY-ME-90214');
   const [areaM2] = useState<number>(areaParam ? Number(areaParam) : 180);
 
   const [tariffAccordionOpen, setTariffAccordionOpen] = useState(false);
   const [showProjections, setShowProjections] = useState(false);
 
+  const lat = latParam ? Number(latParam) : 30.0444;
+  const lng = lngParam ? Number(lngParam) : 31.2357;
   const [rooftopData] = useState<RooftopData>({
-    lat: latParam ? Number(latParam) : 30.0384,
-    lng: lngParam ? Number(lngParam) : 31.2118,
-    formattedAddress: address,
-    polygonAreaM2: areaM2,
-    staticMapUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0PS5hO6t4R7MFK8i9is3eD4S8x-EAePtZtAwbXetoXbZgvHCudt3bK0IR51KwcX0Hhv074KKO_zJ7Z4iBvMdKjrDMXI0OX9G8BpKGk_QQ_l1baAOGS3pcfEGR6SUMECudMsjs-pGRhq6I-JtF5uOK-vDb4aQcY8CoR3dwgQDnEWRpyTJi5TYmFoZqHTcgMrIWmEFvz9UB1sqRUETa7uQt5jB-zEbBhfxwcAEKSf07bbJl0dUOeCDn',
+    lat,
+    lng,
+    formattedAddress: addressParam ? decodeURIComponent(addressParam) : 'عنوان المنشأة',
+    polygonAreaM2: areaParam ? Number(areaParam) : 180,
+    staticMapUrl: mapUrlParam
+      ? decodeURIComponent(mapUrlParam)
+      : (latParam && lngParam ? buildStaticMapUrl(lat, lng) : ''),
   });
 
   // Calculate deterministic solar results
@@ -71,8 +78,9 @@ export function DashboardClient() {
       totalCostEgp: monthlySpendEgp,
       kwhConsumption: monthlyKwh,
       meterNumber,
+      customerName: customerName || undefined,
     };
-  }, [monthlySpendEgp, monthlyKwh, meterNumber]);
+  }, [monthlySpendEgp, monthlyKwh, meterNumber, customerName]);
 
   // Animated Count-Up for Annual Savings
   const [displaySavings, setDisplaySavings] = useState(solarResult.annualSavingsEgp);
@@ -109,8 +117,10 @@ export function DashboardClient() {
       lat: String(rooftopData.lat),
       lng: String(rooftopData.lng),
     });
+    if (customerName) params.set('name', encodeURIComponent(customerName));
+    if (rooftopData.staticMapUrl) params.set('mapUrl', encodeURIComponent(rooftopData.staticMapUrl));
     return `/report?${params.toString()}`;
-  }, [monthlySpendEgp, monthlyKwh, transitionRatio, address, meterNumber, areaM2, rooftopData]);
+  }, [monthlySpendEgp, monthlyKwh, transitionRatio, address, meterNumber, areaM2, rooftopData, customerName]);
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
@@ -133,7 +143,7 @@ export function DashboardClient() {
           </h1>
           <p className="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
             <AppIcon name="storefront" className="text-primary" size={16} />
-            <span className="truncate max-w-[180px]">{address}</span>
+            <span className="truncate max-w-[180px]">{customerName || address}</span>
             <span className="text-outline-variant">•</span>
             <span>استهلاك شهري {Math.round(monthlyKwh).toLocaleString('ar-EG')} ك.و.س</span>
           </p>
