@@ -34,7 +34,7 @@ interface Suggestion {
 export function AddressSearch({
   initialValue = "المعادي، القاهرة",
   onSelectAddress,
-  placeholder = "e.g. المعادي، القاهرة or المنطقة الصناعية، العاشر من رمضان",
+  placeholder = "اكتب عنوان المحل",
   className,
   autoFocus = false,
 }: AddressSearchProps) {
@@ -82,7 +82,6 @@ export function AddressSearch({
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
-      // Check container and also the portal dropdown (by data attribute)
       const portalDropdown = document.querySelector("[data-address-dropdown]");
       if (
         containerRef.current &&
@@ -152,24 +151,24 @@ export function AddressSearch({
   const getCategoryIcon = (cat: Suggestion["category"]) => {
     switch (cat) {
       case "industrial":
-        return <Factory className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
+        return <Factory className="w-3.5 h-3.5 text-sunset shrink-0" />;
       case "hub":
-        return <Compass className="w-3.5 h-3.5 text-purple-400 shrink-0" />;
+        return <Compass className="w-3.5 h-3.5 text-teal shrink-0" />;
       case "commercial":
       default:
-        return <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
+        return <Building2 className="w-3.5 h-3.5 text-teal shrink-0" />;
     }
   };
 
   const getCategoryBadge = (cat: Suggestion["category"]) => {
     switch (cat) {
       case "industrial":
-        return "bg-amber-500/10 text-amber-300 border-amber-500/20";
+        return "bg-sunset/15 text-sunset border-sunset/30";
       case "hub":
-        return "bg-purple-500/10 text-purple-300 border-purple-500/20";
+        return "bg-teal/15 text-teal border-teal/30";
       case "commercial":
       default:
-        return "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
+        return "bg-teal/10 text-teal border-teal/20";
     }
   };
 
@@ -189,14 +188,14 @@ export function AddressSearch({
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full pl-10 pr-20 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 shadow-inner"
+          className="w-full ps-10 pe-24 py-3 bg-sand/40 border border-teal/30 rounded-xl text-ink placeholder-teal-deep/50 text-sm focus:outline-none focus:border-teal focus:ring-2 focus:ring-teal/20 transition-all shadow-inner"
         />
 
-        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+        <Search className="w-4 h-4 text-teal absolute start-3.5 pointer-events-none" />
 
-        <div className="absolute right-2.5 flex items-center gap-1">
+        <div className="absolute end-2.5 flex items-center gap-1.5">
           {isLoading ? (
-            <Loader2 className="w-4 h-4 text-emerald-400 animate-spin mr-1" />
+            <Loader2 className="w-4 h-4 text-teal animate-spin me-1" />
           ) : query ? (
             <button
               type="button"
@@ -205,8 +204,8 @@ export function AddressSearch({
                 setIsOpen(true);
                 inputRef.current?.focus();
               }}
-              title="Clear search"
-              className="p-1 text-slate-400 hover:text-slate-200 transition-colors"
+              title="مسح البحث"
+              className="p-1 text-teal-deep/50 hover:text-teal-deep transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -220,15 +219,15 @@ export function AddressSearch({
                 onSelectAddress(query.trim());
               }
             }}
-            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1 active:scale-95"
+            className="px-3 py-1.5 rounded-lg bg-teal hover:bg-teal/90 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer"
           >
             <Layers className="w-3 h-3" />
-            <span className="hidden sm:inline">Scan</span>
+            <span>فحص السطح</span>
           </button>
         </div>
       </div>
 
-      {/* Autocomplete Suggestions Dropdown — rendered via portal to escape stacking context */}
+      {/* Autocomplete Suggestions Dropdown via Portal */}
       {isMounted &&
         isOpen &&
         suggestions.length > 0 &&
@@ -243,17 +242,17 @@ export function AddressSearch({
               width: dropdownRect.width,
               zIndex: 9999,
             }}
-            className="bg-slate-900/98 border border-slate-700/90 rounded-xl shadow-2xl backdrop-blur-md overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150"
+            className="bg-white border border-teal/20 rounded-xl shadow-lift backdrop-blur-md overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150"
           >
-            <div className="p-2 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-              <span className="font-semibold flex items-center gap-1 text-slate-300">
-                <Sparkles className="w-3 h-3 text-amber-400" />
-                Suggested Egyptian Commercial &amp; Industrial Locations
+            <div className="p-2.5 border-b border-teal/10 flex items-center justify-between text-xs text-teal-deep/70 bg-sand/40">
+              <span className="font-bold flex items-center gap-1.5 text-teal-deep">
+                <Sparkles className="w-3.5 h-3.5 text-sunset" />
+                اقتراحات المناطق والمدن الصناعية والتجارية
               </span>
-              <span className="text-[10px] text-slate-500">Press Enter to select</span>
+              <span className="text-[10px] text-teal-deep/60">اضغط Enter للاختيار</span>
             </div>
 
-            <ul className="max-h-64 overflow-y-auto divide-y divide-slate-800/60 text-xs">
+            <ul className="max-h-64 overflow-y-auto divide-y divide-teal/10 text-xs">
               {suggestions.map((item, idx) => {
                 const isSelected = idx === selectedIndex;
                 return (
@@ -263,22 +262,22 @@ export function AddressSearch({
                       onClick={() => handleSelect(item)}
                       onMouseEnter={() => setSelectedIndex(idx)}
                       className={cn(
-                        "w-full text-left p-3 flex items-center justify-between gap-3 transition-colors cursor-pointer",
+                        "w-full text-right p-3 flex items-center justify-between gap-3 transition-colors cursor-pointer",
                         isSelected
-                          ? "bg-emerald-500/15 text-white"
-                          : "hover:bg-slate-800/70 text-slate-200"
+                          ? "bg-teal/10 text-teal-deep font-bold"
+                          : "hover:bg-sand/60 text-ink"
                       )}
                     >
                       <div className="flex items-start gap-2.5 min-w-0">
-                        <div className="p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/80 shrink-0 mt-0.5">
+                        <div className="p-1.5 rounded-lg bg-sand border border-teal/20 shrink-0 mt-0.5">
                           {getCategoryIcon(item.category)}
                         </div>
-                        <div className="min-w-0">
-                          <div className="font-bold text-slate-100 truncate flex items-center gap-1.5">
+                        <div className="min-w-0 text-right">
+                          <div className="font-bold text-teal-deep truncate flex items-center gap-1.5">
                             <span>{item.label}</span>
                           </div>
                           {item.subLabel && (
-                            <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                            <div className="text-[11px] text-teal-deep/60 truncate mt-0.5">
                               {item.subLabel}
                             </div>
                           )}
@@ -288,15 +287,19 @@ export function AddressSearch({
                       <div className="flex items-center gap-2 shrink-0">
                         <span
                           className={cn(
-                            "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
+                            "text-[10px] font-bold px-2 py-0.5 rounded-full border",
                             getCategoryBadge(item.category)
                           )}
                         >
-                          {item.category}
+                          {item.category === "industrial"
+                            ? "صناعي"
+                            : item.category === "hub"
+                            ? "مجمع"
+                            : "تجاري"}
                         </span>
-                        <span className="text-[10px] text-emerald-400 font-semibold hidden sm:inline-flex items-center gap-0.5">
-                          <MapPin className="w-3 h-3" />
-                          GIS Ready
+                        <span className="text-[10px] text-teal font-semibold hidden sm:inline-flex items-center gap-0.5">
+                          <MapPin className="w-3 h-3 text-teal" />
+                          جاهز للـ GIS
                         </span>
                       </div>
                     </button>

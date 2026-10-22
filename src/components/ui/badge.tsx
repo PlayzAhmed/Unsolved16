@@ -2,7 +2,15 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: "default" | "secondary" | "outline" | "amber" | "emerald";
+  variant?:
+    | "default"
+    | "secondary"
+    | "outline"
+    | "amber"
+    | "emerald"
+    | "teal"
+    | "sun"
+    | "leaf";
 }
 
 function Badge({
@@ -10,24 +18,22 @@ function Badge({
   variant = "default",
   ...props
 }: BadgeProps) {
-  const variantStyles = {
-    default:
-      "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-    emerald:
-      "bg-emerald-600/20 text-emerald-300 border-emerald-500/50",
-    amber:
-      "bg-amber-500/10 text-amber-400 border-amber-500/30",
-    secondary:
-      "bg-slate-700/60 text-slate-300 border-slate-600/50",
-    outline:
-      "text-slate-200 border-slate-700",
+  const variantStyles: Record<NonNullable<BadgeProps["variant"]>, string> = {
+    default: "bg-teal/10 text-teal border-teal/30",
+    teal: "bg-teal/10 text-teal border-teal/30",
+    sun: "bg-sun/30 text-teal-deep border-sun/60 font-bold",
+    leaf: "bg-leaf/15 text-leaf border-leaf/30",
+    emerald: "bg-leaf/15 text-leaf border-leaf/30",
+    amber: "bg-sun/30 text-teal-deep border-sun/60",
+    secondary: "bg-white/80 text-ink border-teal/20",
+    outline: "text-ink border-teal/30",
   };
 
   return (
     <div
       className={cn(
         "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors",
-        variantStyles[variant],
+        variantStyles[variant] || variantStyles.default,
         className
       )}
       {...props}

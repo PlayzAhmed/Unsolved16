@@ -1,114 +1,124 @@
-"use client";
+'use client';
 
-import React from "react";
-import { cn } from "@/lib/utils";
-import { Sparkles, Sun } from "lucide-react";
+import React from 'react';
+import { cn } from '@/lib/utils';
+import { AppIcon } from '@/components/ui/app-icon';
 
 export interface SolarSliderProps {
   value: number; // 0.5 to 1.0 or 50 to 100
   onChange: (value: number) => void;
   className?: string;
   disabled?: boolean;
+  roofInsufficient?: boolean;
 }
 
-const PRESETS = [
-  { label: "50% Offset", value: 0.5, desc: "Cost-Effective Base" },
-  { label: "75% Optimal", value: 0.75, desc: "Max Commercial ROI" },
-  { label: "90% Resilient", value: 0.9, desc: "Peak Shaving" },
-  { label: "100% Net Zero", value: 1.0, desc: "Zero Grid Bill" },
-];
+const SLIDER_NOTES: Record<number, string> = {
+  0.5: 'خيار ٥٠٪ (نصف الشغل): استثمار أولي خفيف يغطي أحمال الإضاءة والمراوح وثلاجات العرض، مع الاعتماد الجزئي على الشبكة.',
+  0.8: 'خيار ٨٠٪ (الأنسب لمحلك): يشغل أفران العجن وثلاجات التبريد بالكامل أثناء ساعات الذروة النهارية دون الحاجة لبطاريات غالية.',
+  1.0: 'خيار ١٠٠٪ (استقلال كامل): تغطية شاملة للطاقة وتصدير صافي فائض شهرياً لشبكة الكهرباء القومية للحصول على رصيد نقدي.',
+};
 
 export function SolarSlider({
   value,
   onChange,
   className,
   disabled = false,
+  roofInsufficient = false,
 }: SolarSliderProps) {
-  // Normalize value to 50-100 for native range input
-  const percentValue = value <= 1.0 ? Math.round(value * 100) : Math.round(value);
+  const normalizedValue = value > 1.0 ? value / 100 : value;
 
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawVal = Number(e.target.value);
-    // Emit as ratio (0.5 to 1.0)
-    onChange(rawVal / 100);
-  };
-
-  const handlePresetClick = (presetVal: number) => {
-    onChange(presetVal);
-  };
+  // Determine active preset (0.5, 0.8, 1.0)
+  const activePreset =
+    Math.abs(normalizedValue - 0.5) < 0.15
+      ? 0.5
+      : Math.abs(normalizedValue - 1.0) < 0.1
+      ? 1.0
+      : 0.8;
 
   return (
     <div
       className={cn(
-        "bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 shadow-xl backdrop-blur-sm",
+        'rounded-xl bg-surface-container-lowest shadow-sm p-4 flex flex-col',
         className
       )}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Sun className="w-5 h-5 text-amber-400" />
-            <h3 className="text-lg font-bold text-slate-100">
-              Solar Transition Ratio
-            </h3>
-          </div>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Adjust target solar energy replacement for your facility (50% to 100%)
-          </p>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-1.5">
+          <AppIcon name="tune" className="text-primary" size={20} />
+          <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">حجم التحول الشمسي</h2>
         </div>
-
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className="px-3 py-1 rounded-full text-base font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-            {percentValue}% Solar Target
-          </span>
-        </div>
+        <span className="font-label-sm text-label-sm text-primary font-medium bg-primary-fixed/40 px-2.5 py-0.5 rounded-full">
+          جرّب السيناريوهات
+        </span>
       </div>
 
-      {/* Slider Input */}
-      <div className="relative py-2">
-        <input
-          type="range"
-          min={50}
-          max={100}
-          step={1}
-          value={percentValue}
-          onChange={handleSliderChange}
+      {/* Segmented 3-Stop Control */}
+      <div
+        aria-label="خيارات نسبة الطاقة الشمسية"
+        className="grid grid-cols-3 gap-2 p-1 bg-surface-container rounded-lg mb-3"
+        role="radiogroup"
+      >
+        {/* Stop 1: 50% */}
+        <button
+          type="button"
           disabled={disabled}
-          className="w-full h-3 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-        />
-        <div className="flex justify-between text-xs font-semibold text-slate-400 mt-2 px-1">
-          <span>50% (Partial Grid Relief)</span>
-          <span>75% (Recommended)</span>
-          <span>100% (Full Net-Zero)</span>
-        </div>
+          onClick={() => onChange(0.5)}
+          className={cn(
+            'flex flex-col items-center justify-center py-2 px-1 rounded-md transition-all duration-200 cursor-pointer',
+            activePreset === 0.5
+              ? 'bg-surface-container-lowest text-primary shadow-sm font-semibold'
+              : 'text-on-surface-variant hover:text-on-surface'
+          )}
+        >
+          <span className="font-headline-sm text-headline-sm font-bold">٥٠٪</span>
+          <span className="font-label-sm text-label-sm truncate">نص الشغل</span>
+        </button>
+
+        {/* Stop 2: 80% */}
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(0.8)}
+          className={cn(
+            'flex flex-col items-center justify-center py-2 px-1 rounded-md transition-all duration-200 cursor-pointer',
+            activePreset === 0.8
+              ? 'bg-surface-container-lowest text-primary shadow-sm font-semibold'
+              : 'text-on-surface-variant hover:text-on-surface'
+          )}
+        >
+          <div className="flex items-center gap-1">
+            <span className="font-headline-sm text-headline-sm font-bold">٨٠٪</span>
+            <span className="w-2 h-2 rounded-full bg-secondary-container"></span>
+          </div>
+          <span className="font-label-sm text-label-sm font-bold">الخيار الأمثل</span>
+        </button>
+
+        {/* Stop 3: 100% */}
+        <button
+          type="button"
+          disabled={disabled || roofInsufficient}
+          onClick={() => !roofInsufficient && onChange(1.0)}
+          className={cn(
+            'flex flex-col items-center justify-center py-2 px-1 rounded-md transition-all duration-200 cursor-pointer',
+            activePreset === 1.0
+              ? 'bg-surface-container-lowest text-primary shadow-sm font-semibold'
+              : 'text-on-surface-variant hover:text-on-surface',
+            roofInsufficient && 'opacity-50 cursor-not-allowed'
+          )}
+        >
+          <span className="font-headline-sm text-headline-sm font-bold">١٠٠٪</span>
+          <span className="font-label-sm text-label-sm truncate">
+            {roofInsufficient ? 'السطح لا يكفي' : 'استقلال تام'}
+          </span>
+        </button>
       </div>
 
-      {/* Quick Select Presets */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5">
-        {PRESETS.map((preset) => {
-          const isSelected = Math.abs(percentValue - preset.value * 100) < 2;
-          return (
-            <button
-              key={preset.value}
-              type="button"
-              onClick={() => handlePresetClick(preset.value)}
-              className={cn(
-                "flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all duration-150",
-                isSelected
-                  ? "bg-emerald-600/20 border-emerald-500 text-emerald-300 font-semibold shadow-md shadow-emerald-950/40"
-                  : "bg-slate-900/40 border-slate-700/60 text-slate-300 hover:bg-slate-750 hover:border-slate-600"
-              )}
-            >
-              <div className="flex items-center gap-1 text-xs font-bold">
-                {isSelected && <Sparkles className="w-3 h-3 text-emerald-400" />}
-                {preset.label}
-              </div>
-              <span className="text-[10px] text-slate-400 mt-0.5">
-                {preset.desc}
-              </span>
-            </button>
-          );
-        })}
+      {/* Active Tier Description Callout */}
+      <div className="rounded-lg bg-surface-container-low p-3 flex items-start gap-2 text-on-surface-variant">
+        <AppIcon name="tips_and_updates" className="text-secondary shrink-0 mt-0.5" size={20} />
+        <p className="font-body-sm text-body-sm leading-relaxed">
+          {SLIDER_NOTES[activePreset]}
+        </p>
       </div>
     </div>
   );

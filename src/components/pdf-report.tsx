@@ -7,6 +7,7 @@ import {
   Text,
   View,
   StyleSheet,
+  Font,
   pdf,
 } from "@react-pdf/renderer";
 import type { SolarResult, BillData, RooftopData, AnnualCashFlow } from "@/types";
@@ -19,7 +20,22 @@ import {
   MAX_COMMERCIAL_COST_PER_KWP,
 } from "@/lib/egypt-tariffs";
 import { cn } from "@/lib/utils";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
+
+// Register Arabic-supporting font for react-pdf
+Font.register({
+  family: "Cairo",
+  fonts: [
+    {
+      src: "https://fonts.gstatic.com/ea/cairo/v2/Cairo-Regular.ttf",
+      fontWeight: "normal",
+    },
+    {
+      src: "https://fonts.gstatic.com/ea/cairo/v2/Cairo-Bold.ttf",
+      fontWeight: "bold",
+    },
+  ],
+});
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -30,28 +46,29 @@ export interface PdfReportProps {
   className?: string;
 }
 
-// ─── Colour Palette ───────────────────────────────────────────────────────────
+// ─── Brand Colour Palette ─────────────────────────────────────────────────────
 
 const C = {
-  emerald: "#059669",
-  emeraldLight: "#d1fae5",
-  emeraldBorder: "#a7f3d0",
-  emeraldDark: "#064e3b",
-  amber: "#d97706",
-  amberLight: "#fef3c7",
-  amberBorder: "#fcd34d",
-  slate900: "#0f172a",
-  slate800: "#1e293b",
+  teal: "#0E7C7B",
+  tealDeep: "#0A3A3A",
+  tealLight: "#E6F4F4",
+  tealBorder: "#99D1D0",
+  sun: "#FFC93C",
+  sunset: "#FF8A3D",
+  sand: "#FAF3E7",
+  leaf: "#4CAF6E",
+  leafLight: "#E8F8ED",
+  leafBorder: "#B5E8C5",
+  ink: "#1E2A2B",
   slate700: "#334155",
-  slate600: "#475569",
-  slate500: "#64748b",
-  slate400: "#94a3b8",
-  slate200: "#e2e8f0",
-  slate100: "#f1f5f9",
-  slate50: "#f8fafc",
-  white: "#ffffff",
-  red: "#dc2626",
-  redLight: "#fee2e2",
+  slate500: "#64748B",
+  slate400: "#94A3B8",
+  slate200: "#E2E8F0",
+  slate100: "#F1F5F9",
+  slate50: "#FAF3E7",
+  white: "#FFFFFF",
+  red: "#D64545",
+  redLight: "#FEE2E2",
 };
 
 // ─── StyleSheet ───────────────────────────────────────────────────────────────
@@ -59,166 +76,168 @@ const C = {
 const s = StyleSheet.create({
   // Pages
   page: {
-    paddingTop: 40,
-    paddingBottom: 56,
-    paddingHorizontal: 40,
+    paddingTop: 36,
+    paddingBottom: 52,
+    paddingHorizontal: 36,
     backgroundColor: C.white,
-    fontFamily: "Helvetica",
+    fontFamily: "Cairo",
     fontSize: 9,
-    color: C.slate800,
+    color: C.ink,
   },
 
-  // ── Header ──
-  header: {
+  // ── Header Band ──
+  headerBand: {
+    backgroundColor: C.teal,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 4,
+    marginBottom: 16,
+    borderBottomWidth: 4,
+    borderBottomColor: C.sun,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 20,
-    paddingBottom: 14,
-    borderBottomWidth: 2,
-    borderBottomColor: C.emerald,
+    alignItems: "center",
   },
-  logoBlock: { flexDirection: "column" },
-  logoTitle: { fontSize: 18, fontFamily: "Helvetica-Bold", color: C.slate900, letterSpacing: 0.5 },
-  logoSubtitle: { fontSize: 8, color: C.emerald, fontFamily: "Helvetica-Bold", marginTop: 2 },
-  logoTagline: { fontSize: 7, color: C.slate500, marginTop: 1 },
+  headerLeft: { flexDirection: "column" },
+  logoTitle: { fontSize: 18, fontFamily: "Cairo", fontWeight: "bold", color: C.white, letterSpacing: 0.5 },
+  reportTitle: { fontSize: 13, fontFamily: "Cairo", fontWeight: "bold", color: C.sun, marginTop: 2 },
+  reportSubtitle: { fontSize: 8, color: C.sand, marginTop: 1 },
   headerRight: { alignItems: "flex-end", flexDirection: "column" },
-  badgePrimary: {
-    backgroundColor: C.emeraldLight,
-    color: C.emeraldDark,
+  badgeBank: {
+    backgroundColor: C.sun,
+    color: C.ink,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 3,
     fontSize: 7,
-    fontFamily: "Helvetica-Bold",
-    borderWidth: 1,
-    borderColor: C.emeraldBorder,
+    fontFamily: "Cairo",
+    fontWeight: "bold",
     textAlign: "center",
   },
-  badgeAmber: {
-    backgroundColor: C.amberLight,
-    color: C.amber,
+  badgeGreen: {
+    backgroundColor: C.leaf,
+    color: C.white,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 3,
     fontSize: 7,
-    fontFamily: "Helvetica-Bold",
-    borderWidth: 1,
-    borderColor: C.amberBorder,
+    fontFamily: "Cairo",
+    fontWeight: "bold",
     textAlign: "center",
-    marginTop: 4,
+    marginTop: 3,
   },
-  docMeta: { fontSize: 7, color: C.slate500, marginTop: 4, textAlign: "right" },
+  docMeta: { fontSize: 7, color: C.sand, marginTop: 3, textAlign: "right" },
 
   // ── Section containers ──
   section: {
-    marginBottom: 12,
+    marginBottom: 11,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: C.slate200,
     overflow: "hidden",
   },
   sectionHeader: {
-    backgroundColor: C.slate900,
+    backgroundColor: C.teal,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   sectionTitle: {
-    fontSize: 8,
-    fontFamily: "Helvetica-Bold",
+    fontSize: 8.5,
+    fontFamily: "Cairo",
+    fontWeight: "bold",
     color: C.white,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
   },
   sectionTag: {
     fontSize: 6.5,
-    color: C.emerald,
-    fontFamily: "Helvetica-Bold",
-    backgroundColor: "#052e16",
-    paddingHorizontal: 5,
-    paddingVertical: 2,
+    color: C.sun,
+    fontFamily: "Cairo",
+    fontWeight: "bold",
+    backgroundColor: C.tealDeep,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
     borderRadius: 2,
   },
-  sectionBody: { padding: 10, backgroundColor: C.white },
-  sectionBodyTinted: { padding: 10, backgroundColor: C.slate50 },
+  sectionBody: { padding: 9, backgroundColor: C.white },
+  sectionBodyTinted: { padding: 9, backgroundColor: C.sand },
 
   // ── Grids ──
   grid2: { flexDirection: "row", flexWrap: "wrap" },
   grid3: { flexDirection: "row", flexWrap: "wrap" },
   grid4: { flexDirection: "row", flexWrap: "wrap" },
-  col2: { width: "50%", paddingRight: 8, marginBottom: 8 },
-  col3: { width: "33.33%", paddingRight: 8, marginBottom: 8 },
-  col4: { width: "25%", paddingRight: 4, marginBottom: 8 },
+  col2: { width: "50%", paddingRight: 8, marginBottom: 6 },
+  col3: { width: "33.33%", paddingRight: 8, marginBottom: 6 },
+  col4: { width: "25%", paddingRight: 4, marginBottom: 6 },
 
   // ── KPI cards ──
   kpiCard: {
     flex: 1,
-    marginRight: 8,
-    backgroundColor: C.slate50,
+    marginRight: 6,
+    backgroundColor: C.sand,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: C.slate200,
-    padding: 8,
+    borderColor: C.tealBorder,
+    padding: 7,
   },
-  kpiCardGreen: {
+  kpiCardTeal: {
     flex: 1,
-    marginRight: 8,
-    backgroundColor: C.emeraldLight,
+    marginRight: 6,
+    backgroundColor: C.tealLight,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: C.emeraldBorder,
-    padding: 8,
+    borderColor: C.tealBorder,
+    padding: 7,
   },
-  kpiCardAmber: {
+  kpiCardSun: {
     flex: 1,
-    marginRight: 8,
-    backgroundColor: C.amberLight,
+    marginRight: 6,
+    backgroundColor: "#FFF8E7",
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: C.amberBorder,
-    padding: 8,
+    borderColor: C.sun,
+    padding: 7,
   },
-  kpiRow: { flexDirection: "row", marginBottom: 8 },
+  kpiRow: { flexDirection: "row", marginBottom: 10 },
 
   // ── Field labels & values ──
-  label: { fontSize: 7, color: C.slate500, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "Helvetica-Bold" },
-  value: { fontSize: 12, fontFamily: "Helvetica-Bold", color: C.slate900, marginTop: 2 },
-  valueGreen: { fontSize: 12, fontFamily: "Helvetica-Bold", color: C.emerald, marginTop: 2 },
-  valueAmber: { fontSize: 12, fontFamily: "Helvetica-Bold", color: C.amber, marginTop: 2 },
-  valueSm: { fontSize: 9, fontFamily: "Helvetica-Bold", color: C.slate900, marginTop: 2 },
-  valueSmGreen: { fontSize: 9, fontFamily: "Helvetica-Bold", color: C.emerald, marginTop: 2 },
-  valueSmAmber: { fontSize: 9, fontFamily: "Helvetica-Bold", color: C.amber, marginTop: 2 },
-  subValue: { fontSize: 7, color: C.slate500, marginTop: 1 },
+  label: { fontSize: 7, color: C.slate500, fontFamily: "Cairo", fontWeight: "bold" },
+  value: { fontSize: 11, fontFamily: "Cairo", fontWeight: "bold", color: C.ink, marginTop: 1 },
+  valueTeal: { fontSize: 11, fontFamily: "Cairo", fontWeight: "bold", color: C.teal, marginTop: 1 },
+  valueSunset: { fontSize: 11, fontFamily: "Cairo", fontWeight: "bold", color: C.sunset, marginTop: 1 },
+  valueSm: { fontSize: 8.5, fontFamily: "Cairo", fontWeight: "bold", color: C.ink, marginTop: 1 },
+  valueSmTeal: { fontSize: 8.5, fontFamily: "Cairo", fontWeight: "bold", color: C.teal, marginTop: 1 },
+  valueSmSunset: { fontSize: 8.5, fontFamily: "Cairo", fontWeight: "bold", color: C.sunset, marginTop: 1 },
+  subValue: { fontSize: 6.5, color: C.slate500, marginTop: 1 },
 
   // ── Dividers ──
-  divider: { borderBottomWidth: 1, borderBottomColor: C.slate200, marginVertical: 8 },
+  divider: { borderBottomWidth: 1, borderBottomColor: C.slate200, marginVertical: 6 },
 
   // ── Projection table ──
   tableHeader: {
     flexDirection: "row",
-    backgroundColor: C.slate900,
+    backgroundColor: C.tealDeep,
     paddingHorizontal: 6,
     paddingVertical: 5,
   },
-  tableHeaderCell: { fontSize: 6.5, fontFamily: "Helvetica-Bold", color: C.white, textTransform: "uppercase" },
-  tableRow: { flexDirection: "row", paddingHorizontal: 6, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: C.slate100 },
-  tableRowAlt: { flexDirection: "row", paddingHorizontal: 6, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: C.slate100, backgroundColor: C.slate50 },
-  tableRowBreakeven: { flexDirection: "row", paddingHorizontal: 6, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: C.emeraldBorder, backgroundColor: C.emeraldLight },
-  tableCell: { fontSize: 7.5, color: C.slate700 },
-  tableCellGreen: { fontSize: 7.5, color: C.emerald, fontFamily: "Helvetica-Bold" },
-  tableCellAmber: { fontSize: 7.5, color: C.amber, fontFamily: "Helvetica-Bold" },
-  tableCellBold: { fontSize: 7.5, color: C.slate900, fontFamily: "Helvetica-Bold" },
+  tableHeaderCell: { fontSize: 6.5, fontFamily: "Cairo", fontWeight: "bold", color: C.white },
+  tableRow: { flexDirection: "row", paddingHorizontal: 6, paddingVertical: 3.5, borderBottomWidth: 1, borderBottomColor: C.slate100 },
+  tableRowAlt: { flexDirection: "row", paddingHorizontal: 6, paddingVertical: 3.5, borderBottomWidth: 1, borderBottomColor: C.slate100, backgroundColor: C.sand },
+  tableRowBreakeven: { flexDirection: "row", paddingHorizontal: 6, paddingVertical: 3.5, borderBottomWidth: 1, borderBottomColor: C.tealBorder, backgroundColor: C.tealLight },
+  tableCell: { fontSize: 7, color: C.ink },
+  tableCellTeal: { fontSize: 7, color: C.teal, fontFamily: "Cairo", fontWeight: "bold" },
+  tableCellSunset: { fontSize: 7, color: C.sunset, fontFamily: "Cairo", fontWeight: "bold" },
+  tableCellBold: { fontSize: 7, color: C.tealDeep, fontFamily: "Cairo", fontWeight: "bold" },
 
   // Table column widths
-  colYear: { width: "10%" },
+  colYear: { width: "12%" },
   colGrid: { width: "20%" },
   colGridS: { width: "20%" },
   colSave: { width: "18%" },
   colCumul: { width: "18%" },
-  colNet: { width: "14%" },
+  colNet: { width: "12%" },
 
   // ── Disclaimer / risk ──
   disclaimerBox: {
@@ -226,67 +245,67 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#fca5a5",
     borderRadius: 4,
-    padding: 8,
-    marginBottom: 10,
+    padding: 7,
+    marginBottom: 8,
   },
-  disclaimerTitle: { fontSize: 7, fontFamily: "Helvetica-Bold", color: C.red, marginBottom: 4, textTransform: "uppercase" },
-  disclaimerText: { fontSize: 7, color: "#7f1d1d", lineHeight: 1.5 },
+  disclaimerTitle: { fontSize: 7, fontFamily: "Cairo", fontWeight: "bold", color: C.red, marginBottom: 3 },
+  disclaimerText: { fontSize: 6.5, color: "#7f1d1d", lineHeight: 1.4 },
 
   // ── Signature block ──
-  sigRow: { flexDirection: "row", marginTop: 12, gap: 20 },
+  sigRow: { flexDirection: "row", marginTop: 8, gap: 16 },
   sigBox: {
     flex: 1,
     borderTopWidth: 1,
-    borderTopColor: C.slate800,
-    paddingTop: 6,
+    borderTopColor: C.tealDeep,
+    paddingTop: 5,
   },
-  sigLabel: { fontSize: 7, color: C.slate500, textTransform: "uppercase" },
-  sigName: { fontSize: 8, fontFamily: "Helvetica-Bold", color: C.slate900, marginTop: 2 },
-  sigDate: { fontSize: 7, color: C.slate500, marginTop: 1 },
+  sigLabel: { fontSize: 6.5, color: C.slate500 },
+  sigName: { fontSize: 7.5, fontFamily: "Cairo", fontWeight: "bold", color: C.ink, marginTop: 2 },
+  sigDate: { fontSize: 6.5, color: C.slate500, marginTop: 1 },
 
   // ── Footer ──
   footer: {
     position: "absolute",
-    bottom: 24,
-    left: 40,
-    right: 40,
+    bottom: 20,
+    left: 36,
+    right: 36,
     borderTopWidth: 1,
     borderTopColor: C.slate200,
-    paddingTop: 6,
+    paddingTop: 5,
     flexDirection: "row",
     justifyContent: "space-between",
   },
   footerText: { fontSize: 6.5, color: C.slate400 },
-  footerGreen: { fontSize: 6.5, color: C.emerald },
+  footerTeal: { fontSize: 6.5, color: C.teal },
 
   // ── Page 2 specific ──
   page2Header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 14,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: C.slate200,
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: C.teal,
   },
-  page2Title: { fontSize: 13, fontFamily: "Helvetica-Bold", color: C.slate900 },
-  page2Sub: { fontSize: 7.5, color: C.slate500, marginTop: 2 },
+  page2Title: { fontSize: 12, fontFamily: "Cairo", fontWeight: "bold", color: C.tealDeep },
+  page2Sub: { fontSize: 7, color: C.slate500, marginTop: 1 },
 
   // ── Tariff table ──
-  tariffRow: { flexDirection: "row", paddingHorizontal: 6, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: C.slate100 },
-  tariffRowAlt: { flexDirection: "row", paddingHorizontal: 6, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: C.slate100, backgroundColor: C.slate50 },
-  tariffCell: { fontSize: 7.5, color: C.slate700 },
-  tariffCellBold: { fontSize: 7.5, color: C.slate900, fontFamily: "Helvetica-Bold" },
+  tariffRow: { flexDirection: "row", paddingHorizontal: 6, paddingVertical: 3.5, borderBottomWidth: 1, borderBottomColor: C.slate100 },
+  tariffRowAlt: { flexDirection: "row", paddingHorizontal: 6, paddingVertical: 3.5, borderBottomWidth: 1, borderBottomColor: C.slate100, backgroundColor: C.sand },
+  tariffCell: { fontSize: 7, color: C.ink },
+  tariffCellBold: { fontSize: 7, color: C.tealDeep, fontFamily: "Cairo", fontWeight: "bold" },
   tariffColTier: { width: "30%" },
-  tariffColRate: { width: "20%" },
-  tariffColFee: { width: "20%" },
+  tariffColRate: { width: "22%" },
+  tariffColFee: { width: "18%" },
   tariffColNote: { width: "30%" },
 
   // ── Info row ──
-  infoRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 5 },
-  infoDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.emerald, marginRight: 6, marginTop: 2 },
-  infoText: { fontSize: 7.5, color: C.slate700, flex: 1, lineHeight: 1.5 },
-  infoTextBold: { fontSize: 7.5, color: C.slate900, fontFamily: "Helvetica-Bold", flex: 1, lineHeight: 1.5 },
+  infoRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 4 },
+  infoDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.teal, marginRight: 6, marginTop: 2 },
+  infoText: { fontSize: 7, color: C.ink, flex: 1, lineHeight: 1.4 },
+  infoTextBold: { fontSize: 7, color: C.tealDeep, fontFamily: "Cairo", fontWeight: "bold", flex: 1, lineHeight: 1.4 },
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -296,7 +315,7 @@ function fmt(n: number): string {
 }
 
 function fmtEgp(n: number): string {
-  return `${fmt(Math.round(n))} EGP`;
+  return `${fmt(Math.round(n))} ج.م`;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -343,206 +362,206 @@ function PageOne({
 
   return (
     <Page size="A4" style={s.page}>
-      {/* ── Header ── */}
-      <View style={s.header}>
-        <View style={s.logoBlock}>
+      {/* ── Teal Header Band + Sun Accent ── */}
+      <View style={s.headerBand}>
+        <View style={s.headerLeft}>
           <Text style={s.logoTitle}>EnergyTwin AI</Text>
-          <Text style={s.logoSubtitle}>Egyptian Green Micro-Finance Solar Proposal</Text>
-          <Text style={s.logoTagline}>Aligned with UN Sustainable Development Goal 7 — Affordable & Clean Energy</Text>
+          <Text style={s.reportTitle}>التقرير الفني والمالي للتمويل الأخضر</Text>
+          <Text style={s.reportSubtitle}>تمويل بنكي أخضر | Green Micro-Finance Report</Text>
         </View>
         <View style={s.headerRight}>
-          <Text style={s.badgePrimary}>BANQUE MISR / NBE QUALIFIED</Text>
-          <Text style={s.badgeAmber}>GREEN MICRO-FINANCE ELIGIBLE</Text>
+          <Text style={s.badgeBank}>BANQUE MISR / NBE QUALIFIED</Text>
+          <Text style={s.badgeGreen}>مؤهل للتمويل الأخضر المدعوم</Text>
           <Text style={s.docMeta}>Proposal Ref: {refNumber}</Text>
-          <Text style={s.docMeta}>Issued: {dateStr}</Text>
+          <Text style={s.docMeta}>تاريخ الإصدار: {dateStr}</Text>
           <Text style={s.docMeta}>Tariff Base: EgyptERA {EGYPT_ERA_EFFECTIVE_DATE}</Text>
         </View>
       </View>
 
       {/* ── KPI Strip ── */}
       <View style={s.kpiRow}>
-        <View style={[s.kpiCardGreen, { marginRight: 8 }]}>
-          <Text style={s.label}>Annual Cash Savings</Text>
-          <Text style={s.valueGreen}>{fmtEgp(solarResult.annualSavingsEgp)}</Text>
-          <Text style={s.subValue}>{fmtEgp(solarResult.monthlySavingsEgp)} / mo saved</Text>
+        <View style={[s.kpiCardTeal, { marginRight: 6 }]}>
+          <Text style={s.label}>الوفر السنوي التقديري</Text>
+          <Text style={s.valueTeal}>{fmtEgp(solarResult.annualSavingsEgp)}</Text>
+          <Text style={s.subValue}>{fmtEgp(solarResult.monthlySavingsEgp)} / شهر</Text>
         </View>
-        <View style={[s.kpiCardAmber, { marginRight: 8 }]}>
-          <Text style={s.label}>Simple Payback</Text>
-          <Text style={s.valueAmber}>{solarResult.paybackPeriodYears.toFixed(1)} Years</Text>
-          <Text style={s.subValue}>IRR positive after payback</Text>
+        <View style={[s.kpiCardSun, { marginRight: 6 }]}>
+          <Text style={s.label}>فترة استرداد التكلفة</Text>
+          <Text style={s.valueSunset}>{solarResult.paybackPeriodYears.toFixed(1)} سنين</Text>
+          <Text style={s.subValue}>عائد استثماري سريع</Text>
         </View>
-        <View style={[s.kpiCard, { marginRight: 8 }]}>
-          <Text style={s.label}>System Capacity</Text>
+        <View style={[s.kpiCard, { marginRight: 6 }]}>
+          <Text style={s.label}>قدرة المحطة المقترحة</Text>
           <Text style={s.value}>{solarResult.systemCapacityKwp.toFixed(2)} kWp</Text>
-          <Text style={s.subValue}>{fmt(annualYieldKwh)} kWh / yr yield</Text>
+          <Text style={s.subValue}>{fmt(annualYieldKwh)} ك.و.س / سنة</Text>
         </View>
         <View style={[s.kpiCard, { marginRight: 0 }]}>
-          <Text style={s.label}>CO₂ Avoided</Text>
-          <Text style={s.value}>{solarResult.co2ReductionTons.toFixed(1)} t/yr</Text>
-          <Text style={s.subValue}>≈ {Math.round(solarResult.co2ReductionTons * 45)} trees planted</Text>
+          <Text style={s.label}>خفض انبعاثات الكربون</Text>
+          <Text style={s.value}>{solarResult.co2ReductionTons.toFixed(1)} طن/سنة</Text>
+          <Text style={s.subValue}>≈ {Math.round(solarResult.co2ReductionTons * 45)} شجرة</Text>
         </View>
       </View>
 
-      {/* ── Section 1: Facility ── */}
+      {/* ── Section 1: بيانات المنشأة والموقع ── */}
       <View style={s.section}>
-        <SectionHeader number="1" title="Facility & Location Profile" tag="GIS VERIFIED" />
+        <SectionHeader number="1" title="بيانات المنشأة والموقع التجاري" tag="GIS VERIFIED" />
         <View style={s.sectionBody}>
           <View style={s.grid2}>
             <View style={s.col2}>
-              <Text style={s.label}>Facility Address</Text>
-              <Text style={s.valueSm}>{rooftopData?.formattedAddress ?? "Maadi, Cairo, Egypt"}</Text>
+              <Text style={s.label}>عنوان المنشأة</Text>
+              <Text style={s.valueSm}>{rooftopData?.formattedAddress ?? "المعادي، القاهرة، مصر"}</Text>
             </View>
             <View style={s.col2}>
-              <Text style={s.label}>Electricity Meter ID</Text>
+              <Text style={s.label}>رقم عداد الكهرباء</Text>
               <Text style={s.valueSm}>{billData?.meterNumber ?? "EGY-ME-90214"}</Text>
             </View>
             <View style={s.col2}>
-              <Text style={s.label}>Baseline Monthly Bill</Text>
+              <Text style={s.label}>الفاتورة الشهرية الحالية</Text>
               <Text style={s.valueSm}>{fmtEgp(billData?.totalCostEgp ?? 3850)}</Text>
-              <Text style={s.subValue}>Incl. EgyptERA customer service charge</Text>
+              <Text style={s.subValue}>شاملة رسوم خدمة العملاء الرسمية</Text>
             </View>
             <View style={s.col2}>
-              <Text style={s.label}>Monthly Consumption</Text>
-              <Text style={s.valueSm}>{fmt(Math.round(monthlyKwh))} kWh</Text>
-              <Text style={s.subValue}>Blended rate: {blendedRate} EGP/kWh</Text>
+              <Text style={s.label}>الاستهلاك الشهري التقديري</Text>
+              <Text style={s.valueSm}>{fmt(Math.round(monthlyKwh))} ك.و.س</Text>
+              <Text style={s.subValue}>متوسط سعر الكيلوواط: {blendedRate} ج.م</Text>
             </View>
             <View style={s.col2}>
-              <Text style={s.label}>Rooftop Polygon Area (GIS)</Text>
-              <Text style={s.valueSm}>{rooftopData?.polygonAreaM2 ?? 280} m²</Text>
+              <Text style={s.label}>مساحة السطح عبر الـ GIS</Text>
+              <Text style={s.valueSm}>{rooftopData?.polygonAreaM2 ?? 280} م²</Text>
               <Text style={s.subValue}>
-                Source: {rooftopData?.meta?.areaSource === "overpass_polygon" ? "Overpass / OpenStreetMap" : "Estimated (kWh / 15)"}
+                المصدر: {rooftopData?.meta?.areaSource === "overpass_polygon" ? "OpenStreetMap / Overpass" : "تقديري (kWh / 15)"}
               </Text>
             </View>
             <View style={s.col2}>
-              <Text style={s.label}>Coordinates (WGS-84)</Text>
+              <Text style={s.label}>الإحداثيات الجغرافية (WGS-84)</Text>
               <Text style={s.valueSm}>
                 {rooftopData?.lat?.toFixed(5) ?? "29.96020"}, {rooftopData?.lng?.toFixed(5) ?? "31.25690"}
               </Text>
-              <Text style={s.subValue}>Google Maps / OpenStreetMap verified</Text>
+              <Text style={s.subValue}>موثق عبر Google Maps و OpenStreetMap</Text>
             </View>
           </View>
         </View>
       </View>
 
-      {/* ── Section 2: PV System Specifications ── */}
+      {/* ── Section 2: مواصفات النظام الشمسي ── */}
       <View style={s.section}>
-        <SectionHeader number="2" title="Proposed Solar PV System Specifications" tag="ENGINEERING" />
+        <SectionHeader number="2" title="مواصفات النظام الشمسي المقترح" tag="ENGINEERING" />
         <View style={s.sectionBody}>
           <View style={s.grid4}>
             <View style={s.col4}>
-              <Text style={s.label}>Peak Capacity</Text>
-              <Text style={s.valueSmGreen}>{solarResult.systemCapacityKwp.toFixed(2)} kWp</Text>
-              <Text style={s.subValue}>Grid-tied, on-roof</Text>
+              <Text style={s.label}>القدرة التصميمية</Text>
+              <Text style={s.valueSmTeal}>{solarResult.systemCapacityKwp.toFixed(2)} kWp</Text>
+              <Text style={s.subValue}>متصل بالشبكة (On-Grid)</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>Roof Area Required</Text>
-              <Text style={s.valueSm}>{solarResult.roofAreaRequiredM2.toFixed(1)} m²</Text>
-              <Text style={s.subValue}>@ 6 m² / kWp</Text>
+              <Text style={s.label}>مساحة السطح المطلوبة</Text>
+              <Text style={s.valueSm}>{solarResult.roofAreaRequiredM2.toFixed(1)} م²</Text>
+              <Text style={s.subValue}>@ 6 م² / kWp</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>Annual Energy Yield</Text>
-              <Text style={s.valueSm}>{fmt(annualYieldKwh)} kWh</Text>
-              <Text style={s.subValue}>5 PSH × 365 days</Text>
+              <Text style={s.label}>الإنتاج السنوي المتوقع</Text>
+              <Text style={s.valueSm}>{fmt(annualYieldKwh)} ك.و.س</Text>
+              <Text style={s.subValue}>٥ ساعات ذروة × ٣٦٥ يوم</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>Solar Coverage</Text>
-              <Text style={s.valueSmAmber}>{solarResult.greenScore}%</Text>
-              <Text style={s.subValue}>of monthly load</Text>
+              <Text style={s.label}>نسبة التحول للشمس</Text>
+              <Text style={s.valueSmSunset}>{solarResult.greenScore}%</Text>
+              <Text style={s.subValue}>من الاستهلاك الكلي</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>Roof Utilisation</Text>
+              <Text style={s.label}>نسبة استغلال السطح</Text>
               <Text style={s.valueSm}>
                 {rooftopData?.polygonAreaM2
                   ? Math.min(100, Math.round((solarResult.roofAreaRequiredM2 / rooftopData.polygonAreaM2) * 100))
                   : "—"}%
               </Text>
-              <Text style={s.subValue}>of polygon area</Text>
+              <Text style={s.subValue}>من مضلع المبنى</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>Panel Technology</Text>
+              <Text style={s.label}>نوع الألواح</Text>
               <Text style={s.valueSm}>Mono PERC</Text>
-              <Text style={s.subValue}>22–23% efficiency</Text>
+              <Text style={s.subValue}>كفاءة عالية ٢٢-٢٣٪</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>Inverter Type</Text>
-              <Text style={s.valueSm}>String / Micro</Text>
-              <Text style={s.subValue}>Grid-synchronised</Text>
+              <Text style={s.label}>العاكس (Inverter)</Text>
+              <Text style={s.valueSm}>String Inverter</Text>
+              <Text style={s.subValue}>متزامن مع شبكة مصر</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>Panel Lifespan</Text>
-              <Text style={s.valueSm}>25 Years</Text>
-              <Text style={s.subValue}>0.5%/yr degradation</Text>
+              <Text style={s.label}>العمر الافتراضي</Text>
+              <Text style={s.valueSm}>25 سنة</Text>
+              <Text style={s.subValue}>ضمان أداء قياسي</Text>
             </View>
           </View>
         </View>
       </View>
 
-      {/* ── Section 3: Financial Assessment ── */}
+      {/* ── Section 3: دراسة الجدوى والتمويل ── */}
       <View style={s.section}>
-        <SectionHeader number="3" title="Financial & Micro-Finance Assessment" tag="EGP" />
+        <SectionHeader number="3" title="التقييم المالي والتمويل المصرفي الأخضر" tag="FINANCE" />
         <View style={s.sectionBody}>
           <View style={s.grid4}>
             <View style={s.col4}>
-              <Text style={s.label}>Turnkey CAPEX</Text>
-              <Text style={s.valueSmAmber}>{fmtEgp(solarResult.initialCostEgp)}</Text>
-              <Text style={s.subValue}>{fmt(COMMERCIAL_SOLAR_COST_PER_KWP)} EGP/kWp</Text>
+              <Text style={s.label}>التكلفة التقديرية الكلية</Text>
+              <Text style={s.valueSmSunset}>{fmtEgp(solarResult.initialCostEgp)}</Text>
+              <Text style={s.subValue}>{fmt(COMMERCIAL_SOLAR_COST_PER_KWP)} ج.م/ك.و.ب</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>Cost Range</Text>
+              <Text style={s.label}>نطاق التكلفة السوقية</Text>
               <Text style={s.valueSm}>
                 {fmtEgp(Math.round(solarResult.systemCapacityKwp * MIN_COMMERCIAL_COST_PER_KWP))}
-                {" – "}
+                {" - "}
                 {fmtEgp(Math.round(solarResult.systemCapacityKwp * MAX_COMMERCIAL_COST_PER_KWP))}
               </Text>
-              <Text style={s.subValue}>Market benchmarks</Text>
+              <Text style={s.subValue}>معايير الموردين المعتمدين</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>Monthly Savings</Text>
-              <Text style={s.valueSmGreen}>{fmtEgp(solarResult.monthlySavingsEgp)}</Text>
-              <Text style={s.subValue}>vs. current bill</Text>
+              <Text style={s.label}>الوفر الشهري</Text>
+              <Text style={s.valueSmTeal}>{fmtEgp(solarResult.monthlySavingsEgp)}</Text>
+              <Text style={s.subValue}>مقارنة بالفاتورة الحالية</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>Annual Savings</Text>
-              <Text style={s.valueSmGreen}>{fmtEgp(solarResult.annualSavingsEgp)}</Text>
-              <Text style={s.subValue}>yr 1 base case</Text>
+              <Text style={s.label}>الوفر السنوي</Text>
+              <Text style={s.valueSmTeal}>{fmtEgp(solarResult.annualSavingsEgp)}</Text>
+              <Text style={s.subValue}>في السنة الأولى</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>Payback Period</Text>
-              <Text style={s.valueSmAmber}>{solarResult.paybackPeriodYears.toFixed(1)} yrs</Text>
-              <Text style={s.subValue}>simple undiscounted</Text>
+              <Text style={s.label}>فترة استرداد التكلفة</Text>
+              <Text style={s.valueSmSunset}>{solarResult.paybackPeriodYears.toFixed(1)} سنين</Text>
+              <Text style={s.subValue}>Payback Period</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>25-Year Net Value</Text>
-              <Text style={[s.valueSm, { color: netValue25Yr >= 0 ? C.emerald : C.red }]}>
+              <Text style={s.label}>صافي العائد على ٢٥ سنة</Text>
+              <Text style={[s.valueSm, { color: netValue25Yr >= 0 ? C.teal : C.red }]}>
                 {netValue25Yr >= 0 ? "+" : ""}{fmtEgp(netValue25Yr)}
               </Text>
-              <Text style={s.subValue}>8% tariff escalation</Text>
+              <Text style={s.subValue}>بمعدل تصاعد تعريفة ٨٪</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>Green Score</Text>
-              <Text style={s.valueSmGreen}>{solarResult.greenScore} / 100</Text>
-              <Text style={s.subValue}>SDG 7 alignment</Text>
+              <Text style={s.label}>مؤشر الاستدامة (SDG 7)</Text>
+              <Text style={s.valueSmTeal}>{solarResult.greenScore} / 100</Text>
+              <Text style={s.subValue}>Clean Energy Score</Text>
             </View>
             <View style={s.col4}>
-              <Text style={s.label}>CO₂ Offset / 25 yr</Text>
-              <Text style={s.valueSm}>{(solarResult.co2ReductionTons * 25).toFixed(0)} tons</Text>
-              <Text style={s.subValue}>Egypt grid 0.53 kg/kWh</Text>
+              <Text style={s.label}>إجمالي خفض CO₂ (25 سنة)</Text>
+              <Text style={s.valueSm}>{(solarResult.co2ReductionTons * 25).toFixed(0)} طن</Text>
+              <Text style={s.subValue}>شبكة مصر 0.53 كجم/ك.و.س</Text>
             </View>
           </View>
 
           <View style={s.divider} />
 
-          {/* Financing eligibility note */}
-          <InfoRow text={`This project qualifies for the Central Bank of Egypt's SME Green Lending Initiative with subsidised interest rates available through Banque Misr and the National Bank of Egypt.`} />
-          <InfoRow text={`Suggested financing structure: 20% down payment (${fmtEgp(solarResult.initialCostEgp * 0.2)}), 80% financed over ${Math.ceil(solarResult.paybackPeriodYears)} years. Monthly repayment offset by solar savings.`} />
-          <InfoRow text={`Net monthly cash impact after loan repayment is approximately ${fmtEgp(Math.max(0, solarResult.monthlySavingsEgp - (solarResult.initialCostEgp * 0.8 / (Math.ceil(solarResult.paybackPeriodYears) * 12))))} EGP positive.`} bold />
+          {/* Financing eligibility notes */}
+          <InfoRow text="هذا المشروع مؤهل لمبادرة البنك المركزي المصري لتمويل المشروعات الصغيرة والمتوسطة بفائدة مدعومة عبر بنك مصر والبنك الأهلي المصري." />
+          <InfoRow text={`هيكل التمويل المقترح: دفعة مقدمة ٢٠٪ (${fmtEgp(solarResult.initialCostEgp * 0.2)})، وتمويل بنكي ٨٠٪ على مدى ${Math.ceil(solarResult.paybackPeriodYears)} سنوات يسدد من الوفر الشهري في فاتورة الكهرباء.`} />
+          <InfoRow text={`الأثر النقدي الشهري الصافي بعد سداد قسط القرض يحقق فائضاً إيجابياً بنحو ${fmtEgp(Math.max(0, solarResult.monthlySavingsEgp - (solarResult.initialCostEgp * 0.8 / (Math.ceil(solarResult.paybackPeriodYears) * 12))))} شهرياً.`} bold />
         </View>
       </View>
 
       {/* ── Footer ── */}
       <View style={s.footer} fixed>
-        <Text style={s.footerText}>EnergyTwin AI — SolveThe17 Hackathon (SDG 7) | Page 1 of 2</Text>
-        <Text style={s.footerGreen}>Tariff: EgyptERA {EGYPT_ERA_EFFECTIVE_DATE} | {EGYPT_ERA_TARIFF_URL}</Text>
+        <Text style={s.footerText}>EnergyTwin AI — هاكاثون SolveThe17 (SDG 7) | صفحة ١ من ٢</Text>
+        <Text style={s.footerTeal}>تعريفة: EgyptERA {EGYPT_ERA_EFFECTIVE_DATE} | {EGYPT_ERA_TARIFF_URL}</Text>
       </View>
     </Page>
   );
@@ -564,7 +583,6 @@ function PageTwo({
   refNumber: string;
 }) {
   const breakEvenYear = cashFlows.findIndex((cf) => cf.netCashFlowEgp >= 0);
-
   const tableYears = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 18, 20, 25];
 
   return (
@@ -572,25 +590,24 @@ function PageTwo({
       {/* ── Page 2 Header ── */}
       <View style={s.page2Header}>
         <View>
-          <Text style={s.page2Title}>EnergyTwin AI — Cash Flow Projections & Reference Data</Text>
+          <Text style={s.page2Title}>EnergyTwin AI — جدول التدفقات النقدية والمراجع الرسمية</Text>
           <Text style={s.page2Sub}>
-            Proposal Ref: {refNumber} | {dateStr} | 25-Year Financial Model (8% tariff escalation, 0.5%/yr panel degradation)
+            رقم المعاملة: {refNumber} | {dateStr} | نموذج مالي لـ ٢٥ سنة (تصاعد سنوي للتعريفة ٨٪، انخفاض أداء الألواح ٠.٥٪/سنة)
           </Text>
         </View>
-        <Text style={s.badgePrimary}>PAGE 2 OF 2</Text>
+        <Text style={s.badgeBank}>صفحة ٢ من ٢</Text>
       </View>
 
       {/* ── Section 4: 25-Year Cash Flow Table ── */}
       <View style={s.section}>
-        <SectionHeader number="4" title="25-Year Commercial Cash Flow & Escalation Table" tag="PROJECTION" />
-        {/* Table header */}
+        <SectionHeader number="4" title="جدول التدفقات النقدية والوفر التراكمي (٢٥ سنة)" tag="PROJECTION" />
         <View style={s.tableHeader}>
-          <Text style={[s.tableHeaderCell, s.colYear]}>Year</Text>
-          <Text style={[s.tableHeaderCell, s.colGrid]}>Grid (No Solar)</Text>
-          <Text style={[s.tableHeaderCell, s.colGridS]}>Grid (w/ Solar)</Text>
-          <Text style={[s.tableHeaderCell, s.colSave]}>Annual Savings</Text>
-          <Text style={[s.tableHeaderCell, s.colCumul]}>Cumulative Saved</Text>
-          <Text style={[s.tableHeaderCell, s.colNet]}>Net Cash Flow</Text>
+          <Text style={[s.tableHeaderCell, s.colYear]}>السنة</Text>
+          <Text style={[s.tableHeaderCell, s.colGrid]}>الكهرباء (بدون شمس)</Text>
+          <Text style={[s.tableHeaderCell, s.colGridS]}>الكهرباء (بالشمس)</Text>
+          <Text style={[s.tableHeaderCell, s.colSave]}>الوفر السنوي</Text>
+          <Text style={[s.tableHeaderCell, s.colCumul]}>الوفر التراكمي</Text>
+          <Text style={[s.tableHeaderCell, s.colNet]}>صافي التدفق</Text>
         </View>
         {tableYears.map((yr, i) => {
           const cf = cashFlows[yr - 1];
@@ -605,13 +622,13 @@ function PageTwo({
           return (
             <View key={yr} style={rowStyle}>
               <Text style={[s.tableCellBold, s.colYear]}>
-                {isBreakEven ? "✓ " : ""}Yr {cf.year}
+                {isBreakEven ? "✓ " : ""}سنة {cf.year}
               </Text>
               <Text style={[s.tableCell, s.colGrid]}>{fmtEgp(cf.gridCostWithoutSolarEgp)}</Text>
               <Text style={[s.tableCell, s.colGridS]}>{fmtEgp(cf.gridCostWithSolarEgp)}</Text>
-              <Text style={[s.tableCellGreen, s.colSave]}>+{fmtEgp(cf.annualSavingsEgp)}</Text>
-              <Text style={[s.tableCellAmber, s.colCumul]}>{fmtEgp(cf.cumulativeSavingsEgp)}</Text>
-              <Text style={[isPositive ? s.tableCellGreen : s.tableCell, s.colNet]}>
+              <Text style={[s.tableCellTeal, s.colSave]}>+{fmtEgp(cf.annualSavingsEgp)}</Text>
+              <Text style={[s.tableCellSunset, s.colCumul]}>{fmtEgp(cf.cumulativeSavingsEgp)}</Text>
+              <Text style={[isPositive ? s.tableCellTeal : s.tableCell, s.colNet]}>
                 {cf.netCashFlowEgp >= 0 ? "+" : ""}{fmtEgp(cf.netCashFlowEgp)}
               </Text>
             </View>
@@ -621,19 +638,19 @@ function PageTwo({
 
       {/* ── Section 5: EgyptERA Tariff Reference ── */}
       <View style={s.section}>
-        <SectionHeader number="5" title="EgyptERA Commercial Electricity Tariff Schedule (April 2026)" tag="OFFICIAL" />
+        <SectionHeader number="5" title="جدول تعريفات الكهرباء التجارية الرسمية (EgyptERA)" tag="OFFICIAL" />
         <View style={s.tableHeader}>
-          <Text style={[s.tableHeaderCell, s.tariffColTier]}>Consumption Band</Text>
-          <Text style={[s.tableHeaderCell, s.tariffColRate]}>Rate (EGP/kWh)</Text>
-          <Text style={[s.tableHeaderCell, s.tariffColFee]}>Service Fee / mo</Text>
-          <Text style={[s.tableHeaderCell, s.tariffColNote]}>Billing Note</Text>
+          <Text style={[s.tableHeaderCell, s.tariffColTier]}>الشريحة الاستهلاكية</Text>
+          <Text style={[s.tableHeaderCell, s.tariffColRate]}>سعر الكيلوواط (ج.م)</Text>
+          <Text style={[s.tableHeaderCell, s.tariffColFee]}>مقابل خدمة العملاء</Text>
+          <Text style={[s.tableHeaderCell, s.tariffColNote]}>طريقة الحساب</Text>
         </View>
         {[
-          { band: "0 – 100 kWh (Tier 1)", rate: "1.62 EGP (162 Pt)", fee: "5.00 EGP", note: "Billed from 0 kWh" },
-          { band: "101 – 250 kWh (Tier 2)", rate: "2.16 EGP (216 Pt)", fee: "15.00 EGP", note: "Entire consumption at Tier 2 rate" },
-          { band: "251 – 600 kWh (Tier 3)", rate: "2.64 EGP (264 Pt)", fee: "20.00 EGP", note: "Entire consumption at Tier 3 rate" },
-          { band: "601 – 1000 kWh (Tier 4)", rate: "264 Pt (0-600) + 274 Pt (601-1000)", fee: "25.00 EGP", note: "Split billing model" },
-          { band: "> 1000 kWh (Tier 5)", rate: "2.79 EGP (279 Pt)", fee: "40.00 EGP", note: "Entire consumption at Tier 5 rate" },
+          { band: "٠ - ١٠٠ ك.و.س (شريحة ١)", rate: "١.٦٢ ج.م (١٦٢ قرش)", fee: "٥.٠٠ ج.م", note: "تحسب من الصفر" },
+          { band: "١٠١ - ٢٥٠ ك.و.س (شريحة ٢)", rate: "٢.١٦ ج.م (٢١٦ قرش)", fee: "١٥.٠٠ ج.م", note: "يحاسب كامل الاستهلاك بسعر الشريحة" },
+          { band: "٢٥١ - ٦٠٠ ك.و.س (شريحة ٣)", rate: "٢.٦٤ ج.م (٢٦٤ قرش)", fee: "٢٠.٠٠ ج.م", note: "يحاسب كامل الاستهلاك بسعر الشريحة" },
+          { band: "٦٠١ - ١٠٠٠ ك.و.س (شريحة ٤)", rate: "٢٦٤ قرش (٠-٦٠٠) + ٢٧٤ قرش (٦٠١-١٠٠٠)", fee: "٢٥.٠٠ ج.م", note: "محاسبة مقسمة للشرائح" },
+          { band: "أكثر من ١٠٠٠ ك.و.س (شريحة ٥)", rate: "٢.٧٩ ج.م (٢٧٩ قرش)", fee: "٤٠.٠٠ ج.م", note: "يحاسب كامل الاستهلاك بالشريحة الخامسة" },
         ].map((row, i) => (
           <View key={i} style={i % 2 === 0 ? s.tariffRow : s.tariffRowAlt}>
             <Text style={[s.tariffCellBold, s.tariffColTier]}>{row.band}</Text>
@@ -646,32 +663,32 @@ function PageTwo({
 
       {/* ── Section 6: Risk & Disclaimer ── */}
       <View style={s.disclaimerBox}>
-        <Text style={s.disclaimerTitle}>⚠ Risk Factors & Important Disclaimers</Text>
+        <Text style={s.disclaimerTitle}>تنبيه وملاحظات إخلاء المسؤولية القانونية</Text>
         <Text style={s.disclaimerText}>
-          This proposal is generated by an AI-assisted software tool for indicative purposes only. It does not constitute a certified engineering assessment, a formal bank offer, or a legal financial document. Actual system performance, costs, and savings will vary based on site survey, panel orientation, shading, grid availability, and prevailing tariff revisions by EgyptERA. The 8% annual tariff escalation assumption is indicative and may change. Investors and lenders should commission a site-certified feasibility study before committing capital. CO₂ figures use the Egyptian National Grid Emission Factor of 0.53 kg CO₂/kWh (NREA).
+          تم إعداد هذا التقرير الفني والمالي الاسترشادي باستخدام محرك الذكاء الاصطناعي EnergyTwin AI لأغراض التقييم الأولي وطلب التمويل البنكي. لا يعتبر هذا المستند بمثابة عرض تمويلي ملزم أو اعتماد هندسي نهائي، حيث تخضع الأرقام الدقيقة للمعاينة الميدانية ومطابقة زاوية السطح مع كود الربط على شبكة الجهد المنخفض. أرقام خفض الكربون تعتمد على معامل انبعاث الشبكة القومية المصرية 0.53 كجم CO₂/ك.و.س (NREA).
         </Text>
       </View>
 
       {/* ── Section 7: Authorisation & Signature Block ── */}
       <View style={s.section}>
-        <SectionHeader number="6" title="Authorisation & Acknowledgement" />
-        <View style={[s.sectionBodyTinted, { paddingBottom: 24 }]}>
-          <InfoRow text="The undersigned acknowledges that this solar feasibility proposal has been reviewed and accepts the indicative financial projections for the purposes of initial bank screening under the CBE SME Green Lending Initiative." />
+        <SectionHeader number="6" title="الإقرار والتوقيع البنكي المبدئي" />
+        <View style={[s.sectionBodyTinted, { paddingBottom: 20 }]}>
+          <InfoRow text="يقر مقدم الطلب بمراجعة دراسة الجدوى الشمسية وقبول التقديرات المالية الأولية لغرض الفحص الائتماني المبدئي ضمن مبادرة البنك المركزي للمشروعات الخضراء." />
           <View style={s.sigRow}>
             <View style={s.sigBox}>
-              <Text style={s.sigLabel}>Applicant / Facility Representative</Text>
+              <Text style={s.sigLabel}>مقدم الطلب / ممثل المنشأة التجارية</Text>
               <Text style={s.sigName}>_____________________________</Text>
-              <Text style={s.sigDate}>Signature & Date</Text>
+              <Text style={s.sigDate}>التوقيع والتاريخ</Text>
             </View>
             <View style={s.sigBox}>
-              <Text style={s.sigLabel}>Bank Relationship Manager</Text>
+              <Text style={s.sigLabel}>مسؤول علاقات الائتمان بالبنك</Text>
               <Text style={s.sigName}>_____________________________</Text>
-              <Text style={s.sigDate}>Stamp & Date</Text>
+              <Text style={s.sigDate}>الختم والتاريخ</Text>
             </View>
             <View style={s.sigBox}>
-              <Text style={s.sigLabel}>EnergyTwin AI Reference</Text>
+              <Text style={s.sigLabel}>الرقم المرجعي لنظام EnergyTwin</Text>
               <Text style={s.sigName}>{refNumber}</Text>
-              <Text style={s.sigDate}>Issued: {dateStr}</Text>
+              <Text style={s.sigDate}>تاريخ التقرير: {dateStr}</Text>
             </View>
           </View>
         </View>
@@ -679,8 +696,8 @@ function PageTwo({
 
       {/* ── Footer ── */}
       <View style={s.footer} fixed>
-        <Text style={s.footerText}>EnergyTwin AI — SolveThe17 Hackathon (SDG 7) | Page 2 of 2</Text>
-        <Text style={s.footerGreen}>Source: {EGYPT_ERA_TARIFF_URL}</Text>
+        <Text style={s.footerText}>EnergyTwin AI — هاكاثون SolveThe17 (SDG 7) | صفحة ٢ من ٢</Text>
+        <Text style={s.footerTeal}>المصدر: {EGYPT_ERA_TARIFF_URL}</Text>
       </View>
     </Page>
   );
@@ -697,15 +714,13 @@ export function BankProposalDocument({
   billData?: BillData;
   rooftopData?: RooftopData;
 }) {
-  const dateStr = new Date().toLocaleDateString("en-GB", {
+  const dateStr = new Date().toLocaleDateString("ar-EG", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
 
-  // Stable ref number derived from timestamp seed
   const refNumber = `ET-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-
   const annualYieldKwh = Math.round(solarResult.systemCapacityKwp * 5 * 365);
   const cashFlows = calculate25YearProjection(solarResult, (billData?.totalCostEgp ?? 3850) * 12);
   const lastCf = cashFlows[24];
@@ -774,7 +789,7 @@ export function PdfReport({
       const addressSlug = (rooftopData?.formattedAddress ?? "Cairo")
         .replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, "_")
         .slice(0, 30);
-      link.download = `EnergyTwin_Bank_Proposal_${addressSlug}_${Date.now()}.pdf`;
+      link.download = `تقرير_طاقة_شمسية_للبنك_${addressSlug}_${Date.now()}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -790,10 +805,10 @@ export function PdfReport({
     return (
       <button
         disabled
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600/50 text-white font-semibold text-sm cursor-not-allowed opacity-70"
+        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal/50 text-white font-semibold text-sm cursor-not-allowed opacity-70"
       >
         <FileText className="w-4 h-4" />
-        Prepare Proposal
+        <span>📄 جاهز للبنك</span>
       </button>
     );
   }
@@ -802,20 +817,23 @@ export function PdfReport({
     <button
       onClick={handleDownloadPdf}
       disabled={isGenerating}
+      style={{
+        background: "linear-gradient(135deg, #FFC93C 0%, #FF8A3D 100%)",
+      }}
       className={cn(
-        "inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold text-sm shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/60 active:scale-95 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed",
+        "inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-ink font-black text-sm shadow-md shadow-sunset/25 hover:shadow-lg hover:scale-[1.02] active:scale-95 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer",
         className
       )}
     >
       {isGenerating ? (
         <>
-          <Loader2 className="w-4 h-4 animate-spin" />
-          Building PDF Proposal...
+          <Loader2 className="w-4 h-4 animate-spin text-ink" />
+          <span>بنجهز التقرير...</span>
         </>
       ) : (
         <>
-          <Download className="w-4 h-4" />
-          Download Bank Proposal PDF
+          <FileText className="w-4 h-4 text-ink" />
+          <span>📄 جاهز للبنك</span>
         </>
       )}
     </button>

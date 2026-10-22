@@ -14,7 +14,7 @@ import {
   Maximize2,
   Leaf,
   Zap,
-  ArrowRight,
+  ArrowLeft,
   RotateCcw,
   Sparkles,
 } from "lucide-react";
@@ -29,17 +29,17 @@ export interface SolarCalculatorProps {
 }
 
 const PRESET_SPENDS = [
-  { label: "Small Shop", spend: 2000, desc: "2,000 EGP/mo" },
-  { label: "Bakery / Cafe", spend: 4500, desc: "4,500 EGP/mo" },
-  { label: "Clinic / Office", spend: 9000, desc: "9,000 EGP/mo" },
-  { label: "Light Industrial", spend: 18000, desc: "18,000 EGP/mo" },
+  { label: "محل تجاري", spend: 2000, desc: "٢,٠٠٠ ج.م/شهر" },
+  { label: "مخبز أو كافيه", spend: 4500, desc: "٤,٥٠٠ ج.م/شهر" },
+  { label: "عيادة أو مكتب", spend: 9000, desc: "٩,٠٠٠ ج.م/شهر" },
+  { label: "ورشة تصنيع", spend: 18000, desc: "١٨,٠٠٠ ج.م/شهر" },
 ];
 
 const RATIO_PRESETS = [
-  { label: "50% Base", value: 0.5 },
-  { label: "75% Optimal", value: 0.75 },
-  { label: "90% High", value: 0.9 },
-  { label: "100% Net Zero", value: 1.0 },
+  { label: "٥٠٪ أساسي", value: 0.5 },
+  { label: "٧٥٪ متوازن", value: 0.75 },
+  { label: "٩٠٪ متقدم", value: 0.9 },
+  { label: "١٠٠٪ كامل", value: 1.0 },
 ];
 
 export function SolarCalculator({
@@ -56,7 +56,6 @@ export function SolarCalculator({
   );
   const [transitionRatio, setTransitionRatio] = useState<number>(initialRatio);
 
-  // Pure deterministic solar calculation
   const solarResult: SolarResult = useMemo(() => {
     const res = calculateSolarSavings({
       monthlySpendEgp,
@@ -90,22 +89,22 @@ export function SolarCalculator({
   return (
     <div
       className={cn(
-        "bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-md space-y-6",
+        "bg-white border border-teal/15 rounded-2xl p-6 sm:p-8 shadow-soft space-y-6",
         className
       )}
     >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-700/60 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-teal/15 pb-5">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            <SunMedium className="w-6 h-6" />
+          <div className="p-2.5 rounded-xl bg-teal/10 text-teal border border-teal/20">
+            <SunMedium className="w-6 h-6 text-sunset" />
           </div>
           <div>
-            <h2 className="text-xl font-extrabold text-white tracking-tight">
-              Solar Feasibility Calculator
+            <h2 className="text-xl font-black text-teal-deep tracking-tight">
+              حاسبة الجدوى الشمسية
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Deterministic calculations based on Egyptian commercial electricity tariffs
+            <p className="text-xs text-teal-deep/70 mt-0.5">
+              حسابات رياضية فورية وفقاً للتعريفات التجارية الرسمية للكهرباء بمصر
             </p>
           </div>
         </div>
@@ -113,10 +112,10 @@ export function SolarCalculator({
         <button
           type="button"
           onClick={handleReset}
-          className="inline-flex items-center gap-1.5 self-start sm:self-auto text-xs font-semibold text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-slate-600 transition-colors"
+          className="inline-flex items-center gap-1.5 self-start sm:self-auto text-xs font-bold text-teal-deep/70 hover:text-teal px-3 py-1.5 rounded-lg border border-teal/20 hover:border-teal bg-sand/60 transition-colors cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          Reset Defaults
+          <span>إعادة تعيين</span>
         </button>
       </div>
 
@@ -125,10 +124,10 @@ export function SolarCalculator({
         {/* Monthly Electricity Spend */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
-              Monthly Electricity Bill
+            <label className="text-xs font-bold text-teal-deep">
+              فاتورة الكهرباء الشهرية
             </label>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <input
                 type="number"
                 min={500}
@@ -136,9 +135,9 @@ export function SolarCalculator({
                 step={250}
                 value={monthlySpendEgp || ""}
                 onChange={(e) => handleSpendChange(Number(e.target.value) || 0)}
-                className="w-28 px-2.5 py-1 text-sm font-extrabold text-right bg-slate-900 border border-slate-700 rounded-lg text-emerald-400 focus:outline-none focus:border-emerald-500"
+                className="w-28 px-2.5 py-1 text-sm font-extrabold text-center bg-sand/60 border border-teal/30 rounded-lg text-teal focus:outline-none focus:border-teal"
               />
-              <span className="text-xs font-bold text-slate-400">EGP</span>
+              <span className="text-xs font-bold text-teal-deep">ج.م</span>
             </div>
           </div>
 
@@ -149,7 +148,7 @@ export function SolarCalculator({
             step={250}
             value={monthlySpendEgp || 3500}
             onChange={(e) => handleSpendChange(Number(e.target.value))}
-            className="w-full h-2.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400"
+            className="w-full h-2.5 bg-sand rounded-lg appearance-none cursor-pointer accent-teal hover:accent-teal/90"
           />
 
           {/* Quick presets */}
@@ -160,14 +159,14 @@ export function SolarCalculator({
                 type="button"
                 onClick={() => handleSpendChange(preset.spend)}
                 className={cn(
-                  "p-2 rounded-lg border text-center transition-colors text-xs",
+                  "p-2 rounded-lg border text-center transition-colors text-xs cursor-pointer",
                   monthlySpendEgp === preset.spend
-                    ? "bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold"
-                    : "bg-slate-900/60 border-slate-700/60 text-slate-300 hover:border-slate-600"
+                    ? "bg-teal/15 border-teal text-teal-deep font-black"
+                    : "bg-sand/40 border-teal/20 text-teal-deep/80 hover:border-teal/50"
                 )}
               >
-                <div className="font-semibold">{preset.label}</div>
-                <div className="text-[10px] text-slate-400">{preset.desc}</div>
+                <div className="font-bold">{preset.label}</div>
+                <div className="text-[10px] text-teal-deep/60">{preset.desc}</div>
               </button>
             ))}
           </div>
@@ -176,10 +175,10 @@ export function SolarCalculator({
         {/* Monthly Consumption (kWh) & Transition Ratio */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
-              Monthly Consumption
+            <label className="text-xs font-bold text-teal-deep">
+              الاستهلاك الشهري التقديري
             </label>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <input
                 type="number"
                 min={100}
@@ -187,17 +186,17 @@ export function SolarCalculator({
                 step={50}
                 value={Math.round(monthlyKwh) || ""}
                 onChange={(e) => handleKwhChange(Number(e.target.value) || 0)}
-                className="w-24 px-2.5 py-1 text-sm font-extrabold text-right bg-slate-900 border border-slate-700 rounded-lg text-amber-400 focus:outline-none focus:border-amber-500"
+                className="w-24 px-2.5 py-1 text-sm font-extrabold text-center bg-sand/60 border border-teal/30 rounded-lg text-sunset focus:outline-none focus:border-teal"
               />
-              <span className="text-xs font-bold text-slate-400">kWh</span>
+              <span className="text-xs font-bold text-teal-deep">ك.و.س</span>
             </div>
           </div>
 
           <div className="pt-1">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-300 mb-2">
-              <span>Target Solar Transition Ratio:</span>
-              <span className="text-emerald-400 font-extrabold text-sm">
-                {Math.round(transitionRatio * 100)}%
+            <div className="flex items-center justify-between text-xs font-bold text-teal-deep mb-2">
+              <span>نسبة التحول المستهدفة للشمس:</span>
+              <span className="text-teal font-black text-sm">
+                <span dir="ltr">{Math.round(transitionRatio * 100)}%</span>
               </span>
             </div>
 
@@ -208,7 +207,7 @@ export function SolarCalculator({
               step={1}
               value={Math.round(transitionRatio * 100)}
               onChange={(e) => setTransitionRatio(Number(e.target.value) / 100)}
-              className="w-full h-2.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400"
+              className="w-full h-2.5 bg-sand rounded-lg appearance-none cursor-pointer accent-teal hover:accent-teal/90"
             />
 
             <div className="grid grid-cols-4 gap-1.5 mt-2.5">
@@ -218,10 +217,10 @@ export function SolarCalculator({
                   type="button"
                   onClick={() => setTransitionRatio(preset.value)}
                   className={cn(
-                    "py-1.5 px-2 rounded-lg border text-center text-xs transition-colors",
+                    "py-1.5 px-2 rounded-lg border text-center text-xs transition-colors cursor-pointer",
                     Math.abs(transitionRatio - preset.value) < 0.02
-                      ? "bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold"
-                      : "bg-slate-900/60 border-slate-700/60 text-slate-400 hover:border-slate-600"
+                      ? "bg-teal/15 border-teal text-teal-deep font-black"
+                      : "bg-sand/40 border-teal/20 text-teal-deep/70 hover:border-teal/50"
                   )}
                 >
                   {preset.label}
@@ -233,86 +232,87 @@ export function SolarCalculator({
       </div>
 
       {/* Outputs / Results Panel */}
-      <div className="pt-4 border-t border-slate-700/60">
+      <div className="pt-4 border-t border-teal/15">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            Calculated Solar Feasibility Outputs
+          <h3 className="text-sm font-bold text-teal-deep flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-sunset" />
+            <span>مؤشرات الجدوى المحسوبة</span>
           </h3>
-          <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">
-            {solarResult.greenScore}% SDG 7 Score
+          <span className="text-xs px-3 py-0.5 rounded-full bg-teal/10 text-teal font-bold border border-teal/20">
+            {solarResult.greenScore}% تغطية خضراء (SDG 7)
           </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {/* 1. Capacity */}
-          <div className="p-3.5 rounded-xl bg-slate-900/70 border border-slate-700/60">
-            <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-semibold mb-1">
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              Capacity
+          <div className="p-3.5 rounded-xl bg-sand/60 border border-teal/15">
+            <div className="flex items-center gap-1.5 text-teal-deep/70 text-[11px] font-bold mb-1">
+              <Zap className="w-3.5 h-3.5 text-sunset" />
+              القدرة
             </div>
-            <div className="text-xl font-extrabold text-white">
-              {solarResult.systemCapacityKwp.toFixed(2)}{" "}
-              <span className="text-xs text-amber-400 font-normal">kWp</span>
+            <div className="text-xl font-black text-teal-deep">
+              <span dir="ltr">{solarResult.systemCapacityKwp.toFixed(2)}</span>{" "}
+              <span className="text-xs text-sunset font-bold">kWp</span>
             </div>
           </div>
 
           {/* 2. Capex */}
-          <div className="p-3.5 rounded-xl bg-slate-900/70 border border-slate-700/60">
-            <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-semibold mb-1">
-              <PiggyBank className="w-3.5 h-3.5 text-emerald-400" />
-              Capex (EGP)
+          <div className="p-3.5 rounded-xl bg-sand/60 border border-teal/15">
+            <div className="flex items-center gap-1.5 text-teal-deep/70 text-[11px] font-bold mb-1">
+              <PiggyBank className="w-3.5 h-3.5 text-teal" />
+              التكلفة
             </div>
-            <div className="text-xl font-extrabold text-slate-100">
-              {solarResult.initialCostEgp.toLocaleString()}
+            <div className="text-xl font-black text-teal-deep">
+              <span dir="ltr">{solarResult.initialCostEgp.toLocaleString()}</span>{" "}
+              <span className="text-xs text-teal-deep/70">ج.م</span>
             </div>
           </div>
 
           {/* 3. Monthly Savings */}
-          <div className="p-3.5 rounded-xl bg-slate-900/70 border border-slate-700/60">
-            <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-semibold mb-1">
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-              Savings/mo
+          <div className="p-3.5 rounded-xl bg-sand/60 border border-teal/15">
+            <div className="flex items-center gap-1.5 text-teal-deep/70 text-[11px] font-bold mb-1">
+              <TrendingUp className="w-3.5 h-3.5 text-teal" />
+              الوفر الشهري
             </div>
-            <div className="text-xl font-extrabold text-emerald-400">
-              {solarResult.monthlySavingsEgp.toLocaleString()}
+            <div className="text-xl font-black text-teal">
+              <span dir="ltr">{solarResult.monthlySavingsEgp.toLocaleString()}</span>{" "}
+              <span className="text-xs text-teal">ج.م</span>
             </div>
           </div>
 
           {/* 4. Payback */}
-          <div className="p-3.5 rounded-xl bg-slate-900/70 border border-slate-700/60">
-            <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-semibold mb-1">
-              <Calendar className="w-3.5 h-3.5 text-amber-400" />
-              Payback
+          <div className="p-3.5 rounded-xl bg-sand/60 border border-teal/15">
+            <div className="flex items-center gap-1.5 text-teal-deep/70 text-[11px] font-bold mb-1">
+              <Calendar className="w-3.5 h-3.5 text-sunset" />
+              الاسترداد
             </div>
-            <div className="text-xl font-extrabold text-slate-100">
-              {solarResult.paybackPeriodYears > 0
-                ? `${solarResult.paybackPeriodYears.toFixed(1)} yrs`
-                : "—"}
+            <div className="text-xl font-black text-teal-deep">
+              <span dir="ltr">{solarResult.paybackPeriodYears > 0 ? solarResult.paybackPeriodYears.toFixed(1) : "—"}</span>{" "}
+              <span className="text-xs text-teal">سنين</span>
             </div>
           </div>
 
           {/* 5. Roof Required */}
-          <div className="p-3.5 rounded-xl bg-slate-900/70 border border-slate-700/60">
-            <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-semibold mb-1">
-              <Maximize2 className="w-3.5 h-3.5 text-slate-400" />
-              Roof Req.
+          <div className="p-3.5 rounded-xl bg-sand/60 border border-teal/15">
+            <div className="flex items-center gap-1.5 text-teal-deep/70 text-[11px] font-bold mb-1">
+              <Maximize2 className="w-3.5 h-3.5 text-teal" />
+              السطح المطلوب
             </div>
-            <div className="text-xl font-extrabold text-slate-100">
-              {solarResult.roofAreaRequiredM2.toFixed(0)}{" "}
-              <span className="text-xs text-slate-400 font-normal">m²</span>
+            <div className="text-xl font-black text-teal-deep">
+              <span dir="ltr">{solarResult.roofAreaRequiredM2.toFixed(0)}</span>{" "}
+              <span className="text-xs text-teal-deep/70">م²</span>
             </div>
           </div>
 
           {/* 6. CO2 Saved */}
-          <div className="p-3.5 rounded-xl bg-slate-900/70 border border-slate-700/60">
-            <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-semibold mb-1">
-              <Leaf className="w-3.5 h-3.5 text-emerald-400" />
-              CO₂ Avoided
+          <div className="p-3.5 rounded-xl bg-sand/60 border border-teal/15">
+            <div className="flex items-center gap-1.5 text-teal-deep/70 text-[11px] font-bold mb-1">
+              <Leaf className="w-3.5 h-3.5 text-leaf" />
+              وفر الكربون
             </div>
-            <div className="text-xl font-extrabold text-emerald-400">
-              {solarResult.co2ReductionTons.toFixed(1)}{" "}
-              <span className="text-xs text-slate-400 font-normal">T/yr</span>
+            <div className="text-xl font-black text-leaf">
+              <span dir="ltr">{solarResult.co2ReductionTons.toFixed(1)}</span>{" "}
+              <span className="text-xs text-leaf">طن/سنة</span>
             </div>
           </div>
         </div>
@@ -320,18 +320,18 @@ export function SolarCalculator({
 
       {/* Optional Link to Full Dashboard */}
       {showDashboardLink && (
-        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-teal-deep/70">
           <span>
-            Need GIS rooftop polygon scanning and Bank Micro-Finance proposal export?
+            عايز تفحص السطح بالأقمار الصناعية وتطلع تقرير جاهز للبنك؟
           </span>
           <Link
             href={`/dashboard?spend=${monthlySpendEgp}&kwh=${Math.round(
               monthlyKwh
             )}&ratio=${transitionRatio}`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors shrink-0"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-teal hover:bg-teal/90 text-white font-bold text-xs transition-colors shrink-0 shadow-xs"
           >
-            <span>Open in Full Dashboard</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <span>انتقل إلى لوحة النتائج الكاملة</span>
+            <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-0 rotate-180" />
           </Link>
         </div>
       )}

@@ -1,61 +1,35 @@
-import React from "react";
-import Link from "next/link";
-import { SunMedium, LayoutDashboard, Calculator, UploadCloud, ShieldCheck } from "lucide-react";
+import React from 'react';
+import Link from 'next/link';
+import { AppIcon } from '@/components/ui/app-icon';
 
-export function Navbar() {
+export function Navbar({ subtitle = 'Audit Home' }: { subtitle?: string }) {
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-amber-500 p-0.5 shadow-md shadow-emerald-950/60 group-hover:scale-105 transition-transform">
-            <div className="w-full h-full bg-slate-900 rounded-[10px] flex items-center justify-center">
-              <SunMedium className="w-5 h-5 text-amber-400 group-hover:text-amber-300 transition-colors" />
-            </div>
+    <header className="fixed top-0 inset-x-0 z-50 bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe">
+      <div className="h-16 px-4 flex items-center justify-between gap-2">
+        {/* Logo + Wordmark */}
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary to-primary-container flex items-center justify-center shadow-sm">
+            <AppIcon name="wb_sunny" className="text-secondary-container" size={20} />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-black tracking-tight text-white">
-                EnergyTwin <span className="text-emerald-400">AI</span>
-              </span>
-              <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                SDG 7
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-400 hidden sm:block -mt-1">
-              Zero-Hardware Egyptian Solar Feasibility
-            </p>
+          <div className="flex flex-col">
+            <span className="text-[16px] text-primary tracking-tight font-extrabold leading-tight">EnergyTwin AI</span>
+            <span className="text-[11px] text-on-surface-variant font-medium leading-tight">{subtitle}</span>
           </div>
         </Link>
 
-        {/* Navigation Links */}
-        <nav className="flex items-center gap-2 sm:gap-4">
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-300 hover:text-emerald-400 transition-colors px-2 py-1"
-          >
-            <UploadCloud className="w-4 h-4 text-emerald-400" />
-            <span>Scan Bill</span>
-          </Link>
-          <Link
-            href="/calculator"
-            className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-300 hover:text-amber-400 transition-colors px-2 py-1"
-          >
-            <Calculator className="w-4 h-4 text-amber-400" />
-            <span>Calculator</span>
-          </Link>
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-300 hover:text-emerald-400 transition-colors px-2 py-1"
-          >
-            <LayoutDashboard className="w-4 h-4 text-emerald-400" />
-            <span>Dashboard</span>
-          </Link>
-          <div className="hidden md:flex items-center gap-1.5 pl-2 border-l border-slate-800 text-xs text-slate-400">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Tariff 2026</span>
+        {/* Right actions */}
+        <div className="flex items-center gap-2">
+          <button className="h-9 px-3 rounded-full bg-surface-container-high text-on-surface text-[13px] flex items-center gap-1 active:scale-95 transition-transform">
+            <AppIcon name="help_outline" className="text-primary" size={18} />
+            <span className="text-[14px]">كيف يعمل؟</span>
+          </button>
+          <button aria-label="تبديل اللغة" className="h-9 px-3 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-semibold hover:bg-surface-container-highest transition-colors">
+            عربي | EN
+          </button>
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+            <AppIcon name="person" className="text-on-primary" size={18} />
           </div>
-        </nav>
+        </div>
       </div>
     </header>
   );
