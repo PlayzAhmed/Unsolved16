@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readBillData, extractBillDataFromText } from "@/lib/bill-ocr";
 import { calculateKwhFromEgp } from "@/lib/egypt-tariffs";
+import type { BillData } from "@/types";
+
+function rejectedBillResponse(result: BillData) {
+  const validationWarning = result.validationReason || "This document is not an electricity bill.";
+  const data: BillData = {
+    ...result,
+    lowConfidence: true,
+    warning: validationWarning,
+  };
+
+  return NextResponse.json(
+    { success: false, error: validationWarning, data },
+    { status: 422 }
+  );
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +33,10 @@ export async function POST(req: NextRequest) {
 
         const result = await readBillData(buffer, fileObj.type || "image/jpeg");
 
+        if (!result.isElectricityBill) {
+          return rejectedBillResponse(result);
+        }
+
         return NextResponse.json({
           success: true,
           data: result,
@@ -31,6 +50,9 @@ export async function POST(req: NextRequest) {
 
       if (body.rawText) {
         const result = extractBillDataFromText(String(body.rawText));
+        if (!result.isElectricityBill) {
+          return rejectedBillResponse(result);
+        }
         return NextResponse.json({
           success: true,
           data: result,
@@ -54,22 +76,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: false,
-      error: "No bill file or data provided",
-    });
+    return NextResponse.json(
+      { success: false, error: "No bill file or data provided" },
+      { status: 400 }
+    );
   } catch (error) {
     console.error("OCR API error:", error);
-    return NextResponse.json({
-      success: true,
-      data: {
-        totalCostEgp: 3850,
-        kwhConsumption: calculateKwhFromEgp(3850),
-        meterNumber: "FALLBACK",
-        lowConfidence: true,
-        source: "fallback",
-        warning: "Could not read bill image. Please adjust with the manual slider.",
-      },
-    });
+    const data: BillData = {
+      lowConfidence: true,
+      source: "fallback",
+      warning: "Could not read bill image. Please adjust with the manual slider.",
+    };
+
+    return NextResponse.json({ success: false, data }, { status: 422 });
   }
 }

@@ -709,18 +709,15 @@ export function BankProposalDocument({
   solarResult,
   billData,
   rooftopData,
+  dateStr,
+  refNumber,
 }: {
   solarResult: SolarResult;
   billData?: BillData;
   rooftopData?: RooftopData;
+  dateStr: string;
+  refNumber: string;
 }) {
-  const dateStr = new Date().toLocaleDateString("ar-EG", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  const refNumber = `ET-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
   const annualYieldKwh = Math.round(solarResult.systemCapacityKwp * 5 * 365);
   const cashFlows = calculate25YearProjection(solarResult, (billData?.totalCostEgp ?? 3850) * 12);
   const lastCf = cashFlows[24];
@@ -775,11 +772,20 @@ export function PdfReport({
     if (isGenerating) return;
     try {
       setIsGenerating(true);
+      const issuedAt = new Date();
+      const dateStr = issuedAt.toLocaleDateString("ar-EG", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      const refNumber = `ET-${issuedAt.getFullYear()}-${String(issuedAt.getTime()).slice(-6)}`;
       const doc = (
         <BankProposalDocument
           solarResult={solarResult}
           billData={billData}
           rooftopData={rooftopData}
+          dateStr={dateStr}
+          refNumber={refNumber}
         />
       );
       const blob = await pdf(doc).toBlob();

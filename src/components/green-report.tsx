@@ -72,11 +72,20 @@ export function GreenReport() {
     try {
       setIsGeneratingPdf(true);
       const { pdf } = await import('@react-pdf/renderer');
+      const issuedAt = new Date();
+      const dateStr = issuedAt.toLocaleDateString('ar-EG', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      const refNumber = `ET-${issuedAt.getFullYear()}-${String(issuedAt.getTime()).slice(-6)}`;
       const doc = (
         <BankProposalDocument
           solarResult={solarResult}
           billData={billData}
           rooftopData={rooftopData}
+          dateStr={dateStr}
+          refNumber={refNumber}
         />
       );
       const blob = await pdf(doc).toBlob();

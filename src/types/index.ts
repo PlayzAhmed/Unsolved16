@@ -17,8 +17,11 @@ export interface BillData {
   confidence?: number;
   lowConfidence?: boolean;
   extractedText?: string;
-  source?: "gemini" | "vision" | "tesseract" | "pdf_text" | "regex" | "fallback" | "demo";
+  source?: "gemini" | "vision" | "tesseract" | "pdf_text" | "regex" | "fallback" | "demo" | "manual";
   warning?: string;
+  isElectricityBill?: boolean;
+  isEgyptianBusinessBill?: boolean;
+  validationReason?: string;
 }
 
 export interface RooftopData {
