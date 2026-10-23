@@ -81,12 +81,16 @@ export function DashboardClient() {
   const lat = latParam ? Number(latParam) : 30.0444;
   const lng = lngParam ? Number(lngParam) : 31.2357;
   const [rooftopData] = useState<RooftopData>({
+    lat,
+    lng,
     formattedAddress: addressParam ? decodeURIComponent(addressParam) : 'عنوان المنشأة',
     polygonAreaM2: areaParam ? Number(areaParam) : 180,
+    staticMapUrl: mapUrlParam
       ? decodeURIComponent(mapUrlParam)
       : (latParam && lngParam ? buildStaticMapUrl(lat, lng) : ''),
     lat: latParam ? Number(latParam) : 30.0384,
     lng: lngParam ? Number(lngParam) : 31.2118,
+    formattedAddress: address,
     roofAreaM2: grossAreaM2,
     usableAreaM2,
     areaUtilizationFactor:
@@ -165,6 +169,7 @@ export function DashboardClient() {
     if (customerName) params.set('name', encodeURIComponent(customerName));
     if (rooftopData.staticMapUrl) params.set('mapUrl', encodeURIComponent(rooftopData.staticMapUrl));
     return `/report?${params.toString()}`;
+<<<<<<< Yours (main)
   }, [
     monthlySpendEgp,
     monthlyKwh,
@@ -175,8 +180,12 @@ export function DashboardClient() {
     grossAreaM2,
     areaSource,
     rooftopData,
-    customerName
   ]);
+||||||| Base
+  }, [monthlySpendEgp, monthlyKwh, transitionRatio, address, meterNumber, areaM2, rooftopData]);
+=======
+  }, [monthlySpendEgp, monthlyKwh, transitionRatio, address, meterNumber, areaM2, rooftopData, customerName]);
+>>>>>>> Theirs (main (from origin))
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
