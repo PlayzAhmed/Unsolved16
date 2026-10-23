@@ -22,7 +22,6 @@ import {
   type MapPoint,
 } from '@/lib/satellite-map';
 import { cn } from '@/lib/utils';
-import { cn, buildStaticMapUrl } from '@/lib/utils';
 import { AppIcon } from '@/components/ui/app-icon';
 import {
   DEFAULT_ROOF_UTILIZATION_FACTOR,
@@ -34,7 +33,6 @@ const DEFAULT_LNG = 31.2118;
 const DEFAULT_AREA_M2 = 180;
 const DEFAULT_USABLE_AREA_M2 = calculateUsableRoofArea(DEFAULT_AREA_M2);
 const DEFAULT_ZOOM = 19;
-
 function normalizeHostname(hostname: string): string {
   return hostname.toLowerCase().replace(/^\[|\]$/g, "");
 }
@@ -227,6 +225,7 @@ export function RoofInspector({
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState('');
   const [rooftopData, setRooftopData] = useState<RooftopData>(() => ({
     lat: DEFAULT_LAT,
     lng: DEFAULT_LNG,
