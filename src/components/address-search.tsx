@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   MapPin,
@@ -44,20 +50,21 @@ export function AddressSearch({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const [dropdownRect, setDropdownRect] = useState<DOMRect | null>(null);
-  const [isMounted, setIsMounted] = useState(false);
+  const [previousInitialValue, setPreviousInitialValue] = useState(initialValue);
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Track mount state for portal
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   // Sync internal state if initialValue changes externally
-  useEffect(() => {
+  if (initialValue !== previousInitialValue) {
+    setPreviousInitialValue(initialValue);
     setQuery(initialValue);
-  }, [initialValue]);
+  }
 
   // Measure the input position whenever the dropdown opens or window resizes
   const measureInput = useCallback(() => {

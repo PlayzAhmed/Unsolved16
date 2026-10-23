@@ -21,15 +21,32 @@ export interface BillData {
   warning?: string;
 }
 
+export type RoofAreaSource =
+  | "google_solar"
+  | "overpass_polygon"
+  | "preset_polygon"
+  | "fallback_formula"
+  | "manual";
+
 export interface RooftopData {
   lat: number;
   lng: number;
   formattedAddress: string;
+  /** Gross roof/footprint area measured from GIS or the map selection. */
+  roofAreaM2?: number;
+  /** Net area available for PV after obstructions and access setbacks. */
+  usableAreaM2?: number;
+  /** Ratio between usable and gross roof area (0–1). */
+  areaUtilizationFactor?: number;
+  /** False when the address could not be resolved and demo coordinates were used. */
+  locationResolved?: boolean;
+  /** Backward-compatible alias for the gross polygon area. */
   polygonAreaM2?: number;
   staticMapUrl?: string;
   polygonCoords?: { lat: number; lng: number }[];
   meta?: {
-    areaSource?: "overpass_polygon" | "fallback_formula";
+    areaSource?: RoofAreaSource;
+    usableAreaSource?: "google_solar" | "utilization_factor" | "manual";
     hasGoogleKey?: boolean;
     zoom?: number;
   };

@@ -18,6 +18,11 @@ export interface ResolvedLocation extends LatLng {
   locationResolved: boolean;
 }
 
+export interface ReverseGeocodeResult {
+  formattedAddress: string;
+  locationResolved: boolean;
+}
+
 export const KNOWN_LOCATIONS: Record<string, KnownLocation> = {
   maadi: {
     lat: 29.9602,
@@ -188,5 +193,88 @@ export async function resolveAddress(
     lng: fallback.lng,
     formattedAddress: address || fallback.label,
     locationResolved: false,
+  };
+}
+
+export function formatCurrentLocationLabel(lat: number, lng: number): string {
+  return `موقعك الحالي (${lat.toFixed(5)}، ${lng.toFixed(5)})`;
+}
+
+/**
+ * Resolves a device coordinate into a human-readable Arabic address.
+ * The coordinate itself is always authoritative, so a provider outage only
+ * affects the label, never the rooftop location used by the calculator.
+ */
+export async function reverseGeocodeCoordinates(
+  lat: number,
+  lng: number,
+  options: { googleApiKey?: string; fetcher?: typeof fetch; timeoutMs?: number } = {}
+): Promise<ReverseGeocodeResult> {
+  if (!isValidCoordinates(lat, lng)) {
+    return { formattedAddress: "موقعك الحالي", locationResolved: false };
+  }
+
+  const fetcher = options.fetcher || fetch;
+  const timeoutMs = options.timeoutMs ?? 4000;
+
+  if (options.googleApiKey) {
+    try {
+      const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+      url.searchParams.set("latlng", `${lat},${lng}`);
+      url.searchParams.set("language", "ar");
+      url.searchParams.set("region", "eg");
+      url.searchParams.set("key", options.googleApiKey);
+
+      const response = await fetcher(url, { signal: AbortSignal.timeout(timeoutMs) });
+      if (response.ok) {
+        const json = await response.json();
+        if (isRecord(json) && json.status === "OK" && Array.isArray(json.results)) {
+          for (const result of json.results) {
+            if (isRecord(result) && typeof result.formatted_address === "string") {
+              const formattedAddress = result.formatted_address.trim();
+              if (formattedAddress) {
+                return { formattedAddress, locationResolved: true };
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Try OpenStreetMap reverse geocoding next.
+    }
+  }
+
+  try {
+    const url = new URL("https://nominatim.openstreetmap.org/reverse");
+    url.searchParams.set("lat", String(lat));
+    url.searchParams.set("lon", String(lng));
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("zoom", "18");
+    url.searchParams.set("addressdetails", "1");
+    url.searchParams.set("accept-language", "ar,en");
+
+    const response = await fetcher(url, {
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: {
+        "User-Agent": "EnergyTwin-AI-Solar-GIS/1.0 (SolveThe17)",
+        "Accept-Language": "ar,en",
+      },
+    });
+    if (response.ok) {
+      const json = await response.json();
+      if (isRecord(json) && typeof json.display_name === "string") {
+        const formattedAddress = json.display_name.trim();
+        if (formattedAddress) {
+          return { formattedAddress, locationResolved: true };
+        }
+      }
+    }
+  } catch {
+    // Fall back to the coordinate label below.
+  }
+
+  return {
+    formattedAddress: formatCurrentLocationLabel(lat, lng),
+    locationResolved: true,
   };
 }

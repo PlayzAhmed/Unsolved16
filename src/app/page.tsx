@@ -116,7 +116,7 @@ export default function HomePage() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end p-3">
                 <span className="text-white font-body-sm text-body-sm leading-snug">
-                  "فاتورتنا كانت بتعدي ٩,٥٠٠ ج.م شهرياً. بعد الخلايا الشمسية بنسدد أقل من ٢,٦٠٠ ج.م."
+                  «فاتورتنا كانت بتعدي ٩,٥٠٠ ج.م شهرياً. بعد الخلايا الشمسية بنسدد أقل من ٢,٦٠٠ ج.م.»
                 </span>
               </div>
             </div>

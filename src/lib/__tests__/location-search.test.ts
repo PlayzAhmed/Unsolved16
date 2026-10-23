@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isValidCoordinates, resolveAddress } from "../location-search.ts";
+import {
+  formatCurrentLocationLabel,
+  isValidCoordinates,
+  resolveAddress,
+  reverseGeocodeCoordinates,
+} from "../location-search.ts";
 
 test("uses exact aliases for known demo locations", async () => {
   let requests = 0;
@@ -91,4 +96,64 @@ test("rejects coordinates outside valid latitude and longitude ranges", () => {
   assert.equal(isValidCoordinates(91, 31.2), false);
   assert.equal(isValidCoordinates(30.1, -181), false);
   assert.equal(isValidCoordinates(Number.NaN, 31.2), false);
+});
+
+test("reverse geocodes device coordinates with Google first", async () => {
+  let requestedUrl: URL | undefined;
+  const result = await reverseGeocodeCoordinates(30.0561, 31.3301, {
+    googleApiKey: "test-key",
+    fetcher: async (input) => {
+      requestedUrl = new URL(String(input));
+      return Response.json({
+        status: "OK",
+        results: [{ formatted_address: "شارع عباس العقاد، مدينة نصر، القاهرة، مصر" }],
+      });
+    },
+  });
+
+  assert.equal(result.locationResolved, true);
+  assert.equal(result.formattedAddress, "شارع عباس العقاد، مدينة نصر، القاهرة، مصر");
+  assert.equal(requestedUrl?.searchParams.get("latlng"), "30.0561,31.3301");
+  assert.equal(requestedUrl?.searchParams.get("language"), "ar");
+});
+
+test("falls back to OpenStreetMap reverse geocoding", async () => {
+  const requests: string[] = [];
+  const result = await reverseGeocodeCoordinates(30.0561, 31.3301, {
+    googleApiKey: "test-key",
+    fetcher: async (input) => {
+      const url = new URL(String(input));
+      requests.push(url.hostname);
+      if (url.hostname === "maps.googleapis.com") {
+        return Response.json({ status: "ZERO_RESULTS", results: [] });
+      }
+      assert.equal(url.searchParams.get("lat"), "30.0561");
+      assert.equal(url.searchParams.get("lon"), "31.3301");
+      return Response.json({ display_name: "عباس العقاد، مدينة نصر، القاهرة، مصر" });
+    },
+  });
+
+  assert.deepEqual(requests, ["maps.googleapis.com", "nominatim.openstreetmap.org"]);
+  assert.equal(result.locationResolved, true);
+  assert.equal(result.formattedAddress, "عباس العقاد، مدينة نصر، القاهرة، مصر");
+});
+
+test("keeps the exact coordinate label when reverse providers fail", async () => {
+  const result = await reverseGeocodeCoordinates(30.0561, 31.3301, {
+    fetcher: async () => {
+      throw new Error("offline");
+    },
+  });
+
+  assert.equal(result.locationResolved, true);
+  assert.equal(result.formattedAddress, formatCurrentLocationLabel(30.0561, 31.3301));
+});
+
+test("rejects reverse geocoding for invalid coordinates", async () => {
+  const result = await reverseGeocodeCoordinates(91, 31.3301, {
+    fetcher: async () => Response.json({ display_name: "never" }),
+  });
+
+  assert.equal(result.locationResolved, false);
+  assert.equal(result.formattedAddress, "موقعك الحالي");
 });

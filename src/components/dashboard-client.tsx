@@ -6,12 +6,27 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import {
   calculateSolarSavings,
   calculate25YearProjection,
+  calculateUsableRoofArea,
 } from '@/lib/solar-calculator';
 import { calculateKwhFromEgp } from '@/lib/egypt-tariffs';
-import type { RooftopData, BillData } from '@/types';
+import type { RooftopData, BillData, RoofAreaSource } from '@/types';
 import { SolarSlider } from '@/components/solar-slider';
 import { AppIcon } from '@/components/ui/app-icon';
 import { cn } from '@/lib/utils';
+
+const AREA_SOURCES: RoofAreaSource[] = [
+  'google_solar',
+  'overpass_polygon',
+  'preset_polygon',
+  'fallback_formula',
+  'manual',
+];
+
+function normalizeAreaSource(value: string | null): RoofAreaSource {
+  return AREA_SOURCES.includes(value as RoofAreaSource)
+    ? (value as RoofAreaSource)
+    : 'manual';
+}
 
 export function DashboardClient() {
   const router = useRouter();
@@ -23,6 +38,8 @@ export function DashboardClient() {
   const addressParam = searchParams.get('address');
   const meterParam = searchParams.get('meter');
   const areaParam = searchParams.get('area');
+  const grossParam = searchParams.get('gross');
+  const sourceParam = searchParams.get('source');
   const latParam = searchParams.get('lat');
   const lngParam = searchParams.get('lng');
 
@@ -39,7 +56,20 @@ export function DashboardClient() {
     addressParam ? decodeURIComponent(addressParam) : 'شارع مصدق، الدقي، الجيزة (مخبز البركة)'
   );
   const [meterNumber] = useState<string>(meterParam || 'EGY-ME-90214');
-  const [areaM2] = useState<number>(areaParam ? Number(areaParam) : 180);
+  const [grossAreaM2] = useState<number>(() => {
+    const paramArea = grossParam
+      ? Number(grossParam)
+      : areaParam
+        ? Number(areaParam)
+        : 0;
+    return paramArea > 0 ? paramArea : 180;
+  });
+  const [usableAreaM2] = useState<number>(() =>
+    areaParam ? Number(areaParam) : calculateUsableRoofArea(grossAreaM2)
+  );
+  const [areaSource] = useState<RoofAreaSource>(() =>
+    normalizeAreaSource(sourceParam)
+  );
 
   const [tariffAccordionOpen, setTariffAccordionOpen] = useState(false);
   const [showProjections, setShowProjections] = useState(false);
@@ -48,8 +78,19 @@ export function DashboardClient() {
     lat: latParam ? Number(latParam) : 30.0384,
     lng: lngParam ? Number(lngParam) : 31.2118,
     formattedAddress: address,
-    polygonAreaM2: areaM2,
+    roofAreaM2: grossAreaM2,
+    usableAreaM2,
+    areaUtilizationFactor:
+      grossAreaM2 > 0
+        ? Math.round((usableAreaM2 / grossAreaM2) * 1000) / 1000
+        : undefined,
+    polygonAreaM2: grossAreaM2,
     staticMapUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0PS5hO6t4R7MFK8i9is3eD4S8x-EAePtZtAwbXetoXbZgvHCudt3bK0IR51KwcX0Hhv074KKO_zJ7Z4iBvMdKjrDMXI0OX9G8BpKGk_QQ_l1baAOGS3pcfEGR6SUMECudMsjs-pGRhq6I-JtF5uOK-vDb4aQcY8CoR3dwgQDnEWRpyTJi5TYmFoZqHTcgMrIWmEFvz9UB1sqRUETa7uQt5jB-zEbBhfxwcAEKSf07bbJl0dUOeCDn',
+    meta: {
+      areaSource,
+      usableAreaSource:
+        areaSource === 'google_solar' ? 'google_solar' : 'utilization_factor',
+    },
   });
 
   // Calculate deterministic solar results
@@ -105,12 +146,24 @@ export function DashboardClient() {
       ratio: String(transitionRatio),
       address: encodeURIComponent(address),
       meter: meterNumber,
-      area: String(areaM2),
+      area: String(usableAreaM2),
+      gross: String(grossAreaM2),
+      source: areaSource,
       lat: String(rooftopData.lat),
       lng: String(rooftopData.lng),
     });
     return `/report?${params.toString()}`;
-  }, [monthlySpendEgp, monthlyKwh, transitionRatio, address, meterNumber, areaM2, rooftopData]);
+  }, [
+    monthlySpendEgp,
+    monthlyKwh,
+    transitionRatio,
+    address,
+    meterNumber,
+    usableAreaM2,
+    grossAreaM2,
+    areaSource,
+    rooftopData,
+  ]);
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
@@ -288,7 +341,7 @@ export function DashboardClient() {
             </span>
           </div>
           <span className="font-label-sm text-label-sm text-on-surface-variant font-numeric-stat-mobile">
-            مساحة السطح: {areaM2} م²
+            السطح: {grossAreaM2} م² · صافي {usableAreaM2} م²
           </span>
         </div>
       </div>

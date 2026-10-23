@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { estimateRoofAreaFallback } from "@/lib/solar-calculator";
+import type { RoofAreaSource } from "@/types";
+import {
+  DEFAULT_ROOF_UTILIZATION_FACTOR,
+  calculateUsableRoofArea,
+  estimateRoofAreaFallback,
+} from "@/lib/solar-calculator";
+import { reverseGeocodeCoordinates } from "@/lib/location-search";
 
 // Egyptian SME demo coordinates & baseline rooftop profiles
 const KNOWN_LOCATIONS: Record<
@@ -12,10 +18,10 @@ const KNOWN_LOCATIONS: Record<
     area: 280,
     label: "المعادي، القاهرة، مصر",
     coords: [
-      { lat: 29.9604, lng: 31.2566 },
-      { lat: 29.9604, lng: 31.2573 },
-      { lat: 29.9600, lng: 31.2573 },
-      { lat: 29.9600, lng: 31.2566 },
+      { lat: 29.960275, lng: 31.256813 },
+      { lat: 29.960275, lng: 31.256987 },
+      { lat: 29.960125, lng: 31.256987 },
+      { lat: 29.960125, lng: 31.256813 },
     ],
   },
   "10th": {
@@ -24,10 +30,10 @@ const KNOWN_LOCATIONS: Record<
     area: 950,
     label: "المنطقة الصناعية، العاشر من رمضان، الشرقية",
     coords: [
-      { lat: 30.2993, lng: 31.7425 },
-      { lat: 30.2993, lng: 31.7438 },
-      { lat: 30.2982, lng: 31.7438 },
-      { lat: 30.2982, lng: 31.7425 },
+      { lat: 30.298938, lng: 31.742940 },
+      { lat: 30.298938, lng: 31.743260 },
+      { lat: 30.298662, lng: 31.743260 },
+      { lat: 30.298662, lng: 31.742940 },
     ],
   },
   nasr: {
@@ -36,10 +42,10 @@ const KNOWN_LOCATIONS: Record<
     area: 420,
     label: "مدينة نصر، القاهرة، مصر",
     coords: [
-      { lat: 30.0564, lng: 31.3297 },
-      { lat: 30.0564, lng: 31.3306 },
-      { lat: 30.0558, lng: 31.3306 },
-      { lat: 30.0558, lng: 31.3297 },
+      { lat: 30.056192, lng: 31.329994 },
+      { lat: 30.056192, lng: 31.330206 },
+      { lat: 30.056008, lng: 31.330206 },
+      { lat: 30.056008, lng: 31.329994 },
     ],
   },
   october: {
@@ -48,10 +54,10 @@ const KNOWN_LOCATIONS: Record<
     area: 600,
     label: "المنطقة الصناعية، السادس من أكتوبر، الجيزة",
     coords: [
-      { lat: 29.9727, lng: 30.9413 },
-      { lat: 29.9727, lng: 30.9426 },
-      { lat: 29.9718, lng: 30.9426 },
-      { lat: 29.9718, lng: 30.9413 },
+      { lat: 29.972410, lng: 30.941773 },
+      { lat: 29.972410, lng: 30.942027 },
+      { lat: 29.972190, lng: 30.942027 },
+      { lat: 29.972190, lng: 30.941773 },
     ],
   },
 };
@@ -64,6 +70,73 @@ interface LatLng {
 interface OverpassBuildingResult {
   area: number;
   coords: LatLng[];
+}
+
+interface GoogleSolarBuildingResult {
+  wholeRoofAreaMeters2: number;
+  maxArrayAreaMeters2: number;
+}
+
+interface PresetLocation {
+  lat: number;
+  lng: number;
+  formattedAddress: string;
+  presetCoords?: LatLng[];
+}
+
+function isValidCoordinate(lat: number, lng: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180
+  );
+}
+
+/**
+ * Matches the curated Egyptian SME hubs before any external lookup.
+ */
+function findPresetLocation(address: string): PresetLocation | null {
+  const lowerAddress = address.toLowerCase();
+
+  if (lowerAddress.includes("رمضان") || lowerAddress.includes("10th")) {
+    const location = KNOWN_LOCATIONS["10th"];
+    return {
+      lat: location.lat,
+      lng: location.lng,
+      formattedAddress: location.label,
+      presetCoords: location.coords,
+    };
+  }
+  if (lowerAddress.includes("نصر") || lowerAddress.includes("nasr")) {
+    const location = KNOWN_LOCATIONS.nasr;
+    return {
+      lat: location.lat,
+      lng: location.lng,
+      formattedAddress: location.label,
+      presetCoords: location.coords,
+    };
+  }
+  if (lowerAddress.includes("أكتوبر") || lowerAddress.includes("october")) {
+    const location = KNOWN_LOCATIONS.october;
+    return {
+      lat: location.lat,
+      lng: location.lng,
+      formattedAddress: location.label,
+      presetCoords: location.coords,
+    };
+  }
+  if (lowerAddress.includes("معادي") || lowerAddress.includes("maadi")) {
+    const location = KNOWN_LOCATIONS.maadi;
+    return {
+      lat: location.lat,
+      lng: location.lng,
+      formattedAddress: location.label,
+      presetCoords: location.coords,
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -97,41 +170,10 @@ function calculateSphericalPolygonArea(coords: LatLng[]): number {
 async function geocodeAddress(
   address: string,
   googleApiKey?: string
-): Promise<{ lat: number; lng: number; formattedAddress: string; presetCoords?: LatLng[] }> {
-  const lowerAddress = address.toLowerCase();
-
-  // Instant response for standard Egyptian SME hubs
-  if (lowerAddress.includes("رمضان") || lowerAddress.includes("10th")) {
-    return {
-      lat: KNOWN_LOCATIONS["10th"].lat,
-      lng: KNOWN_LOCATIONS["10th"].lng,
-      formattedAddress: KNOWN_LOCATIONS["10th"].label,
-      presetCoords: KNOWN_LOCATIONS["10th"].coords,
-    };
-  }
-  if (lowerAddress.includes("نصر") || lowerAddress.includes("nasr")) {
-    return {
-      lat: KNOWN_LOCATIONS.nasr.lat,
-      lng: KNOWN_LOCATIONS.nasr.lng,
-      formattedAddress: KNOWN_LOCATIONS.nasr.label,
-      presetCoords: KNOWN_LOCATIONS.nasr.coords,
-    };
-  }
-  if (lowerAddress.includes("أكتوبر") || lowerAddress.includes("october")) {
-    return {
-      lat: KNOWN_LOCATIONS.october.lat,
-      lng: KNOWN_LOCATIONS.october.lng,
-      formattedAddress: KNOWN_LOCATIONS.october.label,
-      presetCoords: KNOWN_LOCATIONS.october.coords,
-    };
-  }
-  if (lowerAddress.includes("معادي") || lowerAddress.includes("maadi")) {
-    return {
-      lat: KNOWN_LOCATIONS.maadi.lat,
-      lng: KNOWN_LOCATIONS.maadi.lng,
-      formattedAddress: KNOWN_LOCATIONS.maadi.label,
-      presetCoords: KNOWN_LOCATIONS.maadi.coords,
-    };
+): Promise<PresetLocation & { locationResolved: boolean }> {
+  const preset = findPresetLocation(address);
+  if (preset) {
+    return { ...preset, locationResolved: true };
   }
 
   // Google Geocoding API if configured
@@ -154,6 +196,7 @@ async function geocodeAddress(
             lat: loc.lat,
             lng: loc.lng,
             formattedAddress: data.results[0].formatted_address || address,
+            locationResolved: true,
           };
         }
       }
@@ -186,6 +229,7 @@ async function geocodeAddress(
           lat: parseFloat(item.lat),
           lng: parseFloat(item.lon),
           formattedAddress: item.display_name || address,
+          locationResolved: true,
         };
       }
     }
@@ -198,6 +242,7 @@ async function geocodeAddress(
     lng: KNOWN_LOCATIONS.maadi.lng,
     formattedAddress: address.length > 3 ? address : KNOWN_LOCATIONS.maadi.label,
     presetCoords: KNOWN_LOCATIONS.maadi.coords,
+    locationResolved: false,
   };
 }
 
@@ -284,6 +329,50 @@ async function fetchBuildingAreaFromOverpass(
 }
 
 /**
+ * Optional Google Solar API lookup. Returns both the gross roof area and the
+ * net array area when the Solar API is enabled for the provided key.
+ */
+async function fetchGoogleSolarBuildingInsights(
+  lat: number,
+  lng: number,
+  apiKey: string
+): Promise<GoogleSolarBuildingResult | null> {
+  const url = new URL("https://solar.googleapis.com/v1/buildingInsights:findClosest");
+  url.searchParams.set("location.latitude", String(lat));
+  url.searchParams.set("location.longitude", String(lng));
+  url.searchParams.set("requiredQuality", "HIGH");
+  url.searchParams.set("key", apiKey);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2800);
+
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) return null;
+
+    const json = await res.json();
+    const potential = json?.solarPotential;
+    const wholeRoofAreaMeters2 = Number(potential?.wholeRoofAreaMeters2);
+    if (!Number.isFinite(wholeRoofAreaMeters2) || wholeRoofAreaMeters2 <= 0) {
+      return null;
+    }
+
+    const maxArrayAreaMeters2 = Number(potential?.maxArrayAreaMeters2);
+    return {
+      wholeRoofAreaMeters2: Math.round(wholeRoofAreaMeters2 * 100) / 100,
+      maxArrayAreaMeters2:
+        Number.isFinite(maxArrayAreaMeters2) && maxArrayAreaMeters2 > 0
+          ? Math.round(maxArrayAreaMeters2 * 100) / 100
+          : 0,
+    };
+  } catch {
+    clearTimeout(timeoutId);
+    return null;
+  }
+}
+
+/**
  * Builds standard Google Static Maps API URL.
  */
 function buildGoogleStaticMapUrl(params: {
@@ -300,7 +389,7 @@ function buildGoogleStaticMapUrl(params: {
     lat,
     lng,
     zoom = 19,
-    size = "640x360",
+    size = "640x480",
     scale = 2,
     maptype = "satellite",
     polygonCoords,
@@ -342,37 +431,106 @@ function buildGoogleStaticMapUrl(params: {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const address = String(body.address || "المعادي، القاهرة");
+    const rawAddress = typeof body.address === "string" ? body.address.trim() : "";
+    const address = rawAddress || "المعادي، القاهرة";
     const monthlyKwh = Number(body.monthlyKwh || 1800);
     const googleApiKey =
       process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const googleSolarKey = process.env.GOOGLE_SOLAR_API_KEY || googleApiKey;
 
-    // 1. Geocode address to (lat, lng)
-    const { lat, lng, formattedAddress, presetCoords } = await geocodeAddress(address, googleApiKey);
+    // 1. Resolve the address. A suggestion or the browser's current location can
+    // supply exact coordinates, which avoids a second geocoding round-trip and
+    // keeps the selected place precise. When only coordinates are supplied, we
+    // reverse geocode them to show a human-readable address.
+    const requestedLat = Number(body.lat);
+    const requestedLng = Number(body.lng);
+    const hasRequestedCoordinates = isValidCoordinate(requestedLat, requestedLng);
+    const shouldReverseGeocode =
+      hasRequestedCoordinates && Boolean(body.reverse || !rawAddress);
+    const presetLocation = rawAddress ? findPresetLocation(rawAddress) : null;
+    const reversePromise =
+      hasRequestedCoordinates && shouldReverseGeocode
+        ? reverseGeocodeCoordinates(requestedLat, requestedLng, {
+            googleApiKey,
+          })
+        : Promise.resolve(null);
+    let resolved: PresetLocation & { locationResolved: boolean };
+    if (hasRequestedCoordinates) {
+      resolved = {
+        lat: requestedLat,
+        lng: requestedLng,
+        formattedAddress: rawAddress || "موقع محدد على الخريطة",
+        presetCoords: presetLocation?.presetCoords,
+        locationResolved: true,
+      };
+    } else if (presetLocation) {
+      resolved = { ...presetLocation, locationResolved: true };
+    } else {
+      resolved = await geocodeAddress(address, googleApiKey);
+    }
+    const { lat, lng, presetCoords, locationResolved } = resolved;
 
-    // 2. Query Overpass API for OpenStreetMap building polygons & calculate area in m²
-    const overpassResult = await fetchBuildingAreaFromOverpass(lat, lng);
+    // 2. Query OSM, Google Solar, and reverse geocoding in parallel. OSM is the
+    // primary footprint source of truth; Google Solar supplies a higher-quality
+    // net array area when the key has the Solar API enabled.
+    const [overpassResult, googleSolarResult, reverseResult] = await Promise.all([
+      fetchBuildingAreaFromOverpass(lat, lng),
+      googleSolarKey
+        ? fetchGoogleSolarBuildingInsights(lat, lng, googleSolarKey)
+        : Promise.resolve<GoogleSolarBuildingResult | null>(null),
+      reversePromise,
+    ]);
+    const formattedAddress =
+      reverseResult?.formattedAddress || resolved.formattedAddress;
 
-    let polygonAreaM2 = 0;
+    let roofAreaM2 = 0;
     let polygonCoords: LatLng[] | undefined = undefined;
-    let source: "overpass_polygon" | "fallback_formula" = "overpass_polygon";
+    let areaSource: RoofAreaSource = "overpass_polygon";
 
     if (overpassResult && overpassResult.area > 0) {
-      polygonAreaM2 = overpassResult.area;
+      roofAreaM2 = overpassResult.area;
       polygonCoords = overpassResult.coords;
+      areaSource = "overpass_polygon";
+    } else if (
+      googleSolarResult &&
+      googleSolarResult.wholeRoofAreaMeters2 > 0
+    ) {
+      roofAreaM2 = googleSolarResult.wholeRoofAreaMeters2;
+      areaSource = "google_solar";
     } else if (presetCoords && presetCoords.length >= 3) {
-      polygonAreaM2 = calculateSphericalPolygonArea(presetCoords);
+      roofAreaM2 = calculateSphericalPolygonArea(presetCoords);
       polygonCoords = presetCoords;
-      source = "overpass_polygon";
+      areaSource = "preset_polygon";
     } else {
       // 3. Fallback per AGENTS.md:
       // If Overpass returns no building polygon, estimate roof capacity using:
       // Estimated Area (m²) = Monthly kWh / 15
-      polygonAreaM2 = estimateRoofAreaFallback(monthlyKwh);
-      source = "fallback_formula";
+      roofAreaM2 = estimateRoofAreaFallback(monthlyKwh);
+      areaSource = "fallback_formula";
     }
 
-    // 4. Construct satellite imagery URL:
+    // 4. Split gross roof area and net PV area. Prefer Google Solar's max
+    // array area; otherwise apply a conservative utilization factor.
+    const googleUsableAreaM2 = googleSolarResult?.maxArrayAreaMeters2 ?? 0;
+    const usableAreaM2 =
+      googleUsableAreaM2 > 0
+        ? Math.min(
+            roofAreaM2,
+            Math.round(googleUsableAreaM2 * 100) / 100
+          )
+        : calculateUsableRoofArea(roofAreaM2);
+    const usableAreaSource =
+      googleUsableAreaM2 > 0 ? "google_solar" : "utilization_factor";
+    const areaUtilizationFactor =
+      roofAreaM2 > 0
+        ? Math.round((usableAreaM2 / roofAreaM2) * 1000) / 1000
+        : DEFAULT_ROOF_UTILIZATION_FACTOR;
+
+    // Backward-compatible alias: existing consumers treat polygonAreaM2 as the
+    // measured roof area, which is now explicitly the gross footprint.
+    const polygonAreaM2 = roofAreaM2;
+
+    // 5. Construct satellite imagery URL:
     // If a Google API Key is present, build direct Google Static Maps URL.
     // If no key is set yet, point directly to the zero-downtime satellite image endpoint (/api/rooftop-image)
     // which serves real high-resolution satellite tiles and vector CAD without key errors!
@@ -381,15 +539,15 @@ export async function POST(req: NextRequest) {
           lat,
           lng,
           zoom: 19,
-          size: "640x360",
+          size: "640x480",
           scale: 2,
           maptype: "satellite",
           polygonCoords,
           apiKey: googleApiKey,
         })
-      : `/api/rooftop-image?lat=${lat}&lng=${lng}&area=${polygonAreaM2}&address=${encodeURIComponent(
+      : `/api/rooftop-image?lat=${lat}&lng=${lng}&area=${roofAreaM2}&address=${encodeURIComponent(
           formattedAddress
-        )}&zoom=18`;
+        )}&zoom=19`;
 
     return NextResponse.json({
       success: true,
@@ -397,11 +555,16 @@ export async function POST(req: NextRequest) {
         lat,
         lng,
         formattedAddress,
+        locationResolved,
+        roofAreaM2,
+        usableAreaM2,
+        areaUtilizationFactor,
         polygonAreaM2,
         staticMapUrl,
         polygonCoords,
         meta: {
-          areaSource: source,
+          areaSource,
+          usableAreaSource,
           hasGoogleKey: Boolean(googleApiKey),
           zoom: 19,
         },
@@ -411,6 +574,7 @@ export async function POST(req: NextRequest) {
     // AGENTS.md Zero-Downtime Fallback Architecture
     const fallbackKwh = 1800;
     const fallbackArea = estimateRoofAreaFallback(fallbackKwh);
+    const fallbackUsableArea = calculateUsableRoofArea(fallbackArea);
     const googleApiKey =
       process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -426,7 +590,7 @@ export async function POST(req: NextRequest) {
         })
       : `/api/rooftop-image?lat=${fallbackLat}&lng=${fallbackLng}&area=${fallbackArea}&address=${encodeURIComponent(
           "المعادي، القاهرة، مصر"
-        )}&zoom=18`;
+        )}&zoom=19`;
 
     return NextResponse.json({
       success: true,
@@ -434,10 +598,16 @@ export async function POST(req: NextRequest) {
         lat: fallbackLat,
         lng: fallbackLng,
         formattedAddress: "المعادي، القاهرة، مصر",
+        locationResolved: false,
+        roofAreaM2: fallbackArea || 250,
+        usableAreaM2:
+          fallbackUsableArea || calculateUsableRoofArea(250),
+        areaUtilizationFactor: DEFAULT_ROOF_UTILIZATION_FACTOR,
         polygonAreaM2: fallbackArea || 250,
         staticMapUrl,
         meta: {
           areaSource: "fallback_formula",
+          usableAreaSource: "utilization_factor",
           hasGoogleKey: Boolean(googleApiKey),
           zoom: 19,
         },

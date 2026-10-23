@@ -3,9 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 export interface AddressSuggestion {
   label: string;
   subLabel?: string;
+  query?: string;
   lat?: number;
   lng?: number;
   category: "industrial" | "commercial" | "hub" | "general";
+}
+
+export interface AddressSuggestionsMeta {
+  fallbackUsed: boolean;
+  message?: string;
 }
 
 // Curated high-priority Egyptian SME commercial & industrial facilities
@@ -127,6 +133,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         success: true,
         data: EGYPT_COMMERCIAL_ZONES.slice(0, 6),
+        meta: {
+          fallbackUsed: false,
+        } satisfies AddressSuggestionsMeta,
       });
     }
 
@@ -165,6 +174,7 @@ export async function GET(req: NextRequest) {
               (p: { description: string; structured_formatting?: { main_text?: string; secondary_text?: string } }) => ({
                 label: p.structured_formatting?.main_text || p.description,
                 subLabel: p.structured_formatting?.secondary_text || "موقع معتمد - مصر",
+                query: p.description,
                 category: "commercial" as const,
               })
             );
@@ -203,6 +213,7 @@ export async function GET(req: NextRequest) {
               return {
                 label: mainText,
                 subLabel: subText,
+                query: item.display_name,
                 lat: parseFloat(item.lat),
                 lng: parseFloat(item.lon),
                 category: "general" as const,
@@ -228,12 +239,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       data: deduplicated.slice(0, 8),
+      meta: {
+        fallbackUsed: false,
+      } satisfies AddressSuggestionsMeta,
     });
   } catch {
     // AGENTS.md Zero-downtime mock fallback
     return NextResponse.json({
       success: true,
       data: EGYPT_COMMERCIAL_ZONES.slice(0, 5),
+      meta: {
+        fallbackUsed: true,
+        message:
+          "تعذر تحميل الاقتراحات الحالية، ويتم عرض مناطق تجريبية بدلًا منها.",
+      } satisfies AddressSuggestionsMeta,
     });
   }
 }

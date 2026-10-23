@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import type { RooftopData } from '@/types';
+import { calculateUsableRoofArea } from '@/lib/roof-area';
 import { cn } from '@/lib/utils';
 import { AppIcon } from '@/components/ui/app-icon';
 
@@ -17,7 +18,10 @@ export function MapPreview({
   className,
 }: MapPreviewProps) {
   const address = rooftopData?.formattedAddress || 'شارع مصدق، الدقي، الجيزة';
-  const availableAreaM2 = rooftopData?.polygonAreaM2 || 180;
+  const grossAreaM2 =
+    rooftopData?.roofAreaM2 ?? rooftopData?.polygonAreaM2 ?? 180;
+  const availableAreaM2 =
+    rooftopData?.usableAreaM2 ?? calculateUsableRoofArea(grossAreaM2);
   const staticMapUrl =
     rooftopData?.staticMapUrl ||
     'https://lh3.googleusercontent.com/aida-public/AB6AXuD0PS5hO6t4R7MFK8i9is3eD4S8x-EAePtZtAwbXetoXbZgvHCudt3bK0IR51KwcX0Hhv074KKO_zJ7Z4iBvMdKjrDMXI0OX9G8BpKGk_QQ_l1baAOGS3pcfEGR6SUMECudMsjs-pGRhq6I-JtF5uOK-vDb4aQcY8CoR3dwgQDnEWRpyTJi5TYmFoZqHTcgMrIWmEFvz9UB1sqRUETa7uQt5jB-zEbBhfxwcAEKSf07bbJl0dUOeCDn';
@@ -81,8 +85,8 @@ export function MapPreview({
           <circle cx="335" cy="215" fill="#006161" r="5" stroke="#ffffff" strokeWidth="2"></circle>
           <circle cx="105" cy="235" fill="#006161" r="5" stroke="#ffffff" strokeWidth="2"></circle>
 
-          {/* Compass & Sun Angle Indicator in Top Left */}
-          <g transform="translate(30, 30)">
+          {/* Compass & Sun Angle Indicator (bottom right, clear of the HUD pills) */}
+          <g transform="translate(370, 270)">
             <circle cx="0" cy="0" fill="#1e1b14" fillOpacity="0.75" r="18"></circle>
             <line stroke="#fdc73a" strokeLinecap="round" strokeWidth="2.5" x1="0" x2="0" y1="0" y2="12"></line>
             <polygon fill="#fdc73a" points="0,15 -3,10 3,10"></polygon>
@@ -145,7 +149,7 @@ export function MapPreview({
             <span className="font-label-sm text-label-sm text-on-surface-variant mr-0.5">م²</span>
           </div>
           <span className="font-label-sm text-label-sm text-primary font-semibold mt-0.5">
-            🏠 سقفك ≈ {Math.round(availableAreaM2)} م²
+            🏠 صافي {Math.round(availableAreaM2)} من {Math.round(grossAreaM2)} م²
           </span>
         </div>
 

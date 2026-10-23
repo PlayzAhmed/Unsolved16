@@ -1,14 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-function latLngToTile(lat: number, lng: number, zoom: number): { x: number; y: number } {
-  const n = Math.pow(2, zoom);
-  const x = Math.floor(((lng + 180) / 360) * n);
-  const latRad = (lat * Math.PI) / 180;
-  const y = Math.floor(
-    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n
-  );
-  return { x, y };
-}
+import { buildEsriExportUrl, clampRooftopZoom } from "@/lib/satellite-map";
 
 /**
  * Procedural fallback SVG when external satellite servers are unreachable.
@@ -17,8 +8,7 @@ function latLngToTile(lat: number, lng: number, zoom: number): { x: number; y: n
 function generateFallbackSatelliteSvg(
   lat: number,
   lng: number,
-  areaM2: number,
-  address: string
+  areaM2: number
 ): string {
   const safeArea = Math.round(areaM2 || 280);
   const panelsCount = Math.max(12, Math.round(safeArea / 2.5));
@@ -122,24 +112,26 @@ function generateFallbackSatelliteSvg(
   </svg>`;
 }
 
+const TRANSPARENT_TILE_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" />';
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const lat = parseFloat(searchParams.get("lat") || "29.9602");
   const lng = parseFloat(searchParams.get("lng") || "31.2569");
-  const zoom = Math.min(19, Math.max(17, parseInt(searchParams.get("zoom") || "18", 10)));
+  const zoom = clampRooftopZoom(parseInt(searchParams.get("zoom") || "19", 10));
   const areaM2 = parseFloat(searchParams.get("area") || "280");
-  const address = searchParams.get("address") || "المعادي، القاهرة";
+  const isPanTile = searchParams.get("tile") === "1";
 
-  // 1. Attempt to fetch real global high-resolution satellite imagery tile (ESRI World Imagery)
-  // ESRI World Imagery provides public, free satellite imagery without requiring an API key.
+  // 1. Fetch a centred ESRI World Imagery export. The export API covers a
+  // known 4:3 ground extent, unlike a raw tile, so map selections convert to m².
   try {
-    const { x, y } = latLngToTile(lat, lng, zoom);
-    const tileUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${y}/${x}`;
+    const exportUrl = buildEsriExportUrl(lat, lng, zoom);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-    const res = await fetch(tileUrl, {
+    const res = await fetch(exportUrl, {
       signal: controller.signal,
       headers: {
         "User-Agent": "EnergyTwin-AI-Solar-GIS/1.0 (SolveThe17 Hackathon)",
@@ -147,11 +139,12 @@ export async function GET(req: NextRequest) {
     });
     clearTimeout(timeoutId);
 
-    if (res.ok) {
+    const contentType = res.headers.get("content-type") || "";
+    if (res.ok && contentType.startsWith("image/")) {
       const buffer = await res.arrayBuffer();
       return new NextResponse(buffer, {
         headers: {
-          "Content-Type": "image/jpeg",
+          "Content-Type": contentType,
           "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
         },
       });
@@ -160,8 +153,20 @@ export async function GET(req: NextRequest) {
     // If tile fetch fails or times out, proceed seamlessly to vector satellite CAD
   }
 
-  // 2. High-impact procedural vector satellite CAD fallback
-  const svg = generateFallbackSatelliteSvg(lat, lng, areaM2, address);
+  // 2. Surrounding pan tiles fail closed: a transparent tile leaves the real
+  // map (or its backdrop) visible instead of splicing the synthetic demo map
+  // against real satellite imagery. Do not cache failures so they can retry.
+  if (isPanTile) {
+    return new NextResponse(TRANSPARENT_TILE_SVG, {
+      headers: {
+        "Content-Type": "image/svg+xml; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  // 3. High-impact procedural vector satellite CAD fallback for the main image
+  const svg = generateFallbackSatelliteSvg(lat, lng, areaM2);
   return new NextResponse(svg, {
     headers: {
       "Content-Type": "image/svg+xml; charset=utf-8",

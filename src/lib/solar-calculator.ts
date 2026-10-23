@@ -13,6 +13,11 @@ import {
 
 export type { CalculateSolarParams, RoofFeasibility, AnnualCashFlow };
 
+export {
+  DEFAULT_ROOF_UTILIZATION_FACTOR,
+  calculateUsableRoofArea,
+} from "./roof-area";
+
 /**
  * Estimates available rooftop area in m² based on monthly electricity consumption
  * as specified in AGENTS.md fallback: Estimated Area (m²) = Monthly kWh / 15.

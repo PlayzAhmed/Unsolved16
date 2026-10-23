@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { BillUploader } from '@/components/bill-uploader';
 import { RoofInspector } from '@/components/roof-inspector';
 import { calculateKwhFromEgp } from '@/lib/egypt-tariffs';
+import { calculateUsableRoofArea } from '@/lib/solar-calculator';
 import type { BillData, RooftopData } from '@/types';
 
 export function LandingForm() {
@@ -21,13 +22,19 @@ export function LandingForm() {
   };
 
   const handleRoofConfirmed = (rooftopData: RooftopData) => {
+    const roofAreaM2 =
+      rooftopData.roofAreaM2 ?? rooftopData.polygonAreaM2 ?? 180;
+    const usableAreaM2 =
+      rooftopData.usableAreaM2 ?? calculateUsableRoofArea(roofAreaM2);
     const params = new URLSearchParams({
       address: rooftopData.formattedAddress,
       spend: String(spendEgp),
       kwh: String(Math.round(monthlyKwh)),
       meter: meterNumber,
       ratio: '0.8',
-      area: String(rooftopData.polygonAreaM2 || 180),
+      area: String(usableAreaM2),
+      gross: String(roofAreaM2),
+      source: rooftopData.meta?.areaSource ?? 'manual',
       lat: String(rooftopData.lat),
       lng: String(rooftopData.lng),
     });

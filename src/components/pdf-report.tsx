@@ -11,7 +11,10 @@ import {
   pdf,
 } from "@react-pdf/renderer";
 import type { SolarResult, BillData, RooftopData, AnnualCashFlow } from "@/types";
-import { calculate25YearProjection } from "@/lib/solar-calculator";
+import {
+  calculate25YearProjection,
+  calculateUsableRoofArea,
+} from "@/lib/solar-calculator";
 import {
   EGYPT_ERA_EFFECTIVE_DATE,
   EGYPT_ERA_TARIFF_URL,
@@ -389,6 +392,19 @@ function PageOne({
   const monthlySpend = billData?.totalCostEgp ?? 0;
   const blendedRate =
     monthlyKwh > 0 && monthlySpend > 0 ? (monthlySpend / monthlyKwh).toFixed(3) : "—";
+  const grossRoofAreaM2 =
+    rooftopData?.roofAreaM2 ?? rooftopData?.polygonAreaM2 ?? 280;
+  const usableRoofAreaM2 =
+    rooftopData?.usableAreaM2 ?? calculateUsableRoofArea(grossRoofAreaM2);
+  const areaSourceLabels: Record<string, string> = {
+    google_solar: "Google Solar API",
+    overpass_polygon: "OpenStreetMap / Overpass",
+    preset_polygon: "نموذج تجريبي معاير",
+    fallback_formula: "تقديري (kWh / 15)",
+    manual: "تحديد يدوي على الخريطة",
+  };
+  const areaSourceLabel =
+    areaSourceLabels[rooftopData?.meta?.areaSource ?? ""] ?? "غير محدد";
 
   return (
     <Page size="A4" style={s.page}>
@@ -456,10 +472,10 @@ function PageOne({
               <Text style={s.subValue}>متوسط سعر الكيلوواط: {blendedRate} ج.م</Text>
             </View>
             <View style={s.col2}>
-              <Text style={s.label}>مساحة السطح عبر الـ GIS</Text>
-              <Text style={s.valueSm}>{rooftopData?.polygonAreaM2 ?? 280} م²</Text>
+              <Text style={s.label}>مساحة السطح الإجمالية (GIS)</Text>
+              <Text style={s.valueSm}>{grossRoofAreaM2} م²</Text>
               <Text style={s.subValue}>
-                المصدر: {rooftopData?.meta?.areaSource === "overpass_polygon" ? "OpenStreetMap / Overpass" : "تقديري (kWh / 15)"}
+                صافي متاح: {usableRoofAreaM2} م² · {areaSourceLabel}
               </Text>
             </View>
             <View style={s.col2}>
@@ -501,11 +517,11 @@ function PageOne({
             <View style={s.col4}>
               <Text style={s.label}>نسبة استغلال السطح</Text>
               <Text style={s.valueSm}>
-                {rooftopData?.polygonAreaM2
-                  ? Math.min(100, Math.round((solarResult.roofAreaRequiredM2 / rooftopData.polygonAreaM2) * 100))
+                {usableRoofAreaM2 > 0
+                  ? Math.min(100, Math.round((solarResult.roofAreaRequiredM2 / usableRoofAreaM2) * 100))
                   : "—"}%
               </Text>
-              <Text style={s.subValue}>من مضلع المبنى</Text>
+              <Text style={s.subValue}>من المساحة الصافية المتاحة</Text>
             </View>
             <View style={s.col4}>
               <Text style={s.label}>نوع الألواح</Text>

@@ -2,9 +2,12 @@
 
 import React, { useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { calculateSolarSavings } from '@/lib/solar-calculator';
+import {
+  calculateSolarSavings,
+  calculateUsableRoofArea,
+} from '@/lib/solar-calculator';
 import { calculateKwhFromEgp } from '@/lib/egypt-tariffs';
-import type { RooftopData, BillData } from '@/types';
+import type { RooftopData, BillData, RoofAreaSource } from '@/types';
 import { BankProposalDocument, createReportMeta } from '@/components/pdf-report';
 import { AppIcon } from '@/components/ui/app-icon';
 import { cn } from '@/lib/utils';
@@ -18,6 +21,8 @@ export function GreenReport() {
   const addressParam = searchParams.get('address');
   const meterParam = searchParams.get('meter');
   const areaParam = searchParams.get('area');
+  const grossParam = searchParams.get('gross');
+  const sourceParam = searchParams.get('source');
   const latParam = searchParams.get('lat');
   const lngParam = searchParams.get('lng');
 
@@ -26,7 +31,25 @@ export function GreenReport() {
   const transitionRatio = ratioParam ? Number(ratioParam) : 0.8;
   const address = addressParam ? decodeURIComponent(addressParam) : 'شارع مصدق، الدقي، الجيزة (مخبز البركة)';
   const meterNumber = meterParam || 'EGY-ME-90214';
-  const areaM2 = areaParam ? Number(areaParam) : 180;
+  const grossAreaM2 = grossParam
+    ? Number(grossParam)
+    : areaParam
+      ? Number(areaParam)
+      : 180;
+  const usableAreaM2 = areaParam
+    ? Number(areaParam)
+    : calculateUsableRoofArea(grossAreaM2);
+  const areaSource: RoofAreaSource = (
+    [
+      'google_solar',
+      'overpass_polygon',
+      'preset_polygon',
+      'fallback_formula',
+      'manual',
+    ] as RoofAreaSource[]
+  ).includes(sourceParam as RoofAreaSource)
+    ? (sourceParam as RoofAreaSource)
+    : 'manual';
   const lat = latParam ? Number(latParam) : 30.0384;
   const lng = lngParam ? Number(lngParam) : 31.2118;
 
@@ -56,10 +79,21 @@ export function GreenReport() {
       lat,
       lng,
       formattedAddress: address,
-      polygonAreaM2: areaM2,
+      roofAreaM2: grossAreaM2,
+      usableAreaM2,
+      areaUtilizationFactor:
+        grossAreaM2 > 0
+          ? Math.round((usableAreaM2 / grossAreaM2) * 1000) / 1000
+          : undefined,
+      polygonAreaM2: grossAreaM2,
       staticMapUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0PS5hO6t4R7MFK8i9is3eD4S8x-EAePtZtAwbXetoXbZgvHCudt3bK0IR51KwcX0Hhv074KKO_zJ7Z4iBvMdKjrDMXI0OX9G8BpKGk_QQ_l1baAOGS3pcfEGR6SUMECudMsjs-pGRhq6I-JtF5uOK-vDb4aQcY8CoR3dwgQDnEWRpyTJi5TYmFoZqHTcgMrIWmEFvz9UB1sqRUETa7uQt5jB-zEbBhfxwcAEKSf07bbJl0dUOeCDn',
+      meta: {
+        areaSource,
+        usableAreaSource:
+          areaSource === 'google_solar' ? 'google_solar' : 'utilization_factor',
+      },
     };
-  }, [lat, lng, address, areaM2]);
+  }, [lat, lng, address, grossAreaM2, usableAreaM2, areaSource]);
 
   // Loan calculation (5% annual, 36 months subsidized CBE green initiative)
   const monthlyLoanPayment = Math.round(
@@ -246,7 +280,9 @@ export function GreenReport() {
               <span className="text-body-sm font-body-sm font-bold text-on-surface mt-1">
                 {Math.round(solarResult.roofAreaRequiredM2)} م²
               </span>
-              <span className="text-label-sm font-label-sm text-on-surface-variant">من أصل {areaM2} م² متاحة</span>
+              <span className="text-label-sm font-label-sm text-on-surface-variant">
+                من أصل {usableAreaM2} م² صافي (إجمالي {grossAreaM2} م²)
+              </span>
             </div>
           </div>
         </div>
