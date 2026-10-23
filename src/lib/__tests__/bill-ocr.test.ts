@@ -4,6 +4,8 @@ import {
   normalizeArabicNumerals,
   extractBillDataFromText,
   readBillData,
+  validateEgyptianBusinessElectricityBill,
+  validateElectricityBill,
 } from "../bill-ocr";
 import { calculateKwhFromEgp } from "../egypt-tariffs";
 
@@ -85,6 +87,97 @@ test("OCR - extractBillDataFromText flags unreadable images honestly without fak
   assert.strictEqual(parsed.lowConfidence, true);
   assert.strictEqual(parsed.totalCostEgp, undefined);
   assert.strictEqual(typeof parsed.warning, "string");
+});
+
+test("OCR - accepts an Egyptian commercial electricity bill only", () => {
+  const validBusinessBill = `
+Egyptian Electricity Distribution Company
+Commercial account - Factory
+Meter No: EGY-COM-90214
+Monthly Consumption: 1366 kWh
+Total Amount Due: 3850 EGP
+  `;
+
+  assert.deepStrictEqual(validateEgyptianBusinessElectricityBill(validBusinessBill), {
+    isEgyptianBusinessBill: true,
+  });
+});
+
+test("OCR - accepts electricity bills without country or business-account checks", () => {
+  assert.strictEqual(
+    validateElectricityBill("Electricity bill. Meter No: 12345. Consumption: 800 kWh.").isElectricityBill,
+    true
+  );
+  assert.strictEqual(
+    validateElectricityBill("Bank transfer receipt. Amount due: 3850 EGP.").isElectricityBill,
+    false
+  );
+});
+
+test("OCR - extracts usage rather than a meter reading from the Eehc English bill layout", () => {
+  const eehcBill = `
+Egyptian Electricity Holding Company
+Current Electric Service - General Service-Commercial
+Account Number 69541-3652
+Tot kWh 1027 524 1 503
+Pk kWh 1.67 0 1 1.67
+Total Due 141.04
+  `;
+
+  const parsed = extractBillDataFromText(eehcBill);
+  assert.strictEqual(parsed.isElectricityBill, true);
+  assert.strictEqual(parsed.meterNumber, "69541-3652");
+  assert.strictEqual(parsed.kwhConsumption, 503);
+  assert.strictEqual(parsed.totalCostEgp, 141.04);
+});
+
+test("OCR - prioritizes labeled consumption and payable totals across layouts", () => {
+  const billText = `
+Electric service charge 82.35
+Total Current Electric Service 98.84
+Grand Total 141.04
+Monthly Consumption: 810 kWh
+Meter reading: 1920
+  `;
+
+  const parsed = extractBillDataFromText(billText);
+  assert.strictEqual(parsed.totalCostEgp, 141.04);
+  assert.strictEqual(parsed.kwhConsumption, 810);
+});
+
+test("OCR - recognizes and extracts native Arabic Egyptian business-bill fields", () => {
+  const arabicBusinessBill = `
+شركة جنوب القاهرة لتوزيع الكهرباء
+نوع النشاط: تجاري
+رقم العداد: EGY-CAI-90214
+كمية الاستهلاك: ١٣٦٦ ك.و.س
+المطلوب سداده: ٣٨٥٠.٥٠ جنيه
+  `;
+
+  const parsed = extractBillDataFromText(arabicBusinessBill);
+  assert.strictEqual(parsed.isEgyptianBusinessBill, true);
+  assert.strictEqual(parsed.kwhConsumption, 1366);
+  assert.strictEqual(parsed.totalCostEgp, 3850.5);
+  assert.strictEqual(parsed.meterNumber, "EGY-CAI-90214");
+});
+
+test("OCR - rejects residential electricity bills and unrelated receipts", () => {
+  const residentialBill = `
+Egyptian Electricity Distribution Company
+Residential household account
+Meter No: EGY-HOME-90214
+Monthly Consumption: 450 kWh
+  `;
+  const bankReceipt = "Bank transfer receipt, amount due 3850 EGP";
+
+  assert.strictEqual(
+    validateEgyptianBusinessElectricityBill(residentialBill).isEgyptianBusinessBill,
+    false
+  );
+  assert.strictEqual(
+    validateEgyptianBusinessElectricityBill(bankReceipt).isEgyptianBusinessBill,
+    false
+  );
 });
 
 test("OCR - readBillData executes Tesseract without workerPath error", async () => {

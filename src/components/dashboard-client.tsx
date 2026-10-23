@@ -12,6 +12,7 @@ import { calculateKwhFromEgp } from '@/lib/egypt-tariffs';
 import type { RooftopData, BillData, RoofAreaSource } from '@/types';
 import { SolarSlider } from '@/components/solar-slider';
 import { AppIcon } from '@/components/ui/app-icon';
+import { cn, buildStaticMapUrl } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 const AREA_SOURCES: RoofAreaSource[] = [
@@ -42,6 +43,8 @@ export function DashboardClient() {
   const sourceParam = searchParams.get('source');
   const latParam = searchParams.get('lat');
   const lngParam = searchParams.get('lng');
+  const nameParam = searchParams.get('name');
+  const mapUrlParam = searchParams.get('mapUrl');
 
   const [monthlySpendEgp, setMonthlySpendEgp] = useState<number>(
     spendParam ? Number(spendParam) : 4120
@@ -53,8 +56,9 @@ export function DashboardClient() {
     ratioParam ? Number(ratioParam) : 0.8
   );
   const [address] = useState<string>(
-    addressParam ? decodeURIComponent(addressParam) : 'شارع مصدق، الدقي، الجيزة (مخبز البركة)'
+    addressParam ? decodeURIComponent(addressParam) : 'عنوان المنشأة'
   );
+  const [customerName] = useState<string>(nameParam ? decodeURIComponent(nameParam) : '');
   const [meterNumber] = useState<string>(meterParam || 'EGY-ME-90214');
   const [grossAreaM2] = useState<number>(() => {
     const paramArea = grossParam
@@ -74,10 +78,15 @@ export function DashboardClient() {
   const [tariffAccordionOpen, setTariffAccordionOpen] = useState(false);
   const [showProjections, setShowProjections] = useState(false);
 
+  const lat = latParam ? Number(latParam) : 30.0444;
+  const lng = lngParam ? Number(lngParam) : 31.2357;
   const [rooftopData] = useState<RooftopData>({
+    formattedAddress: addressParam ? decodeURIComponent(addressParam) : 'عنوان المنشأة',
+    polygonAreaM2: areaParam ? Number(areaParam) : 180,
+      ? decodeURIComponent(mapUrlParam)
+      : (latParam && lngParam ? buildStaticMapUrl(lat, lng) : ''),
     lat: latParam ? Number(latParam) : 30.0384,
     lng: lngParam ? Number(lngParam) : 31.2118,
-    formattedAddress: address,
     roofAreaM2: grossAreaM2,
     usableAreaM2,
     areaUtilizationFactor:
@@ -112,8 +121,9 @@ export function DashboardClient() {
       totalCostEgp: monthlySpendEgp,
       kwhConsumption: monthlyKwh,
       meterNumber,
+      customerName: customerName || undefined,
     };
-  }, [monthlySpendEgp, monthlyKwh, meterNumber]);
+  }, [monthlySpendEgp, monthlyKwh, meterNumber, customerName]);
 
   // Animated Count-Up for Annual Savings
   const [displaySavings, setDisplaySavings] = useState(solarResult.annualSavingsEgp);
@@ -152,6 +162,8 @@ export function DashboardClient() {
       lat: String(rooftopData.lat),
       lng: String(rooftopData.lng),
     });
+    if (customerName) params.set('name', encodeURIComponent(customerName));
+    if (rooftopData.staticMapUrl) params.set('mapUrl', encodeURIComponent(rooftopData.staticMapUrl));
     return `/report?${params.toString()}`;
   }, [
     monthlySpendEgp,
@@ -163,6 +175,7 @@ export function DashboardClient() {
     grossAreaM2,
     areaSource,
     rooftopData,
+    customerName
   ]);
 
   const handleShareWhatsApp = () => {
@@ -186,7 +199,7 @@ export function DashboardClient() {
           </h1>
           <p className="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
             <AppIcon name="storefront" className="text-primary" size={16} />
-            <span className="truncate max-w-[180px]">{address}</span>
+            <span className="truncate max-w-[180px]">{customerName || address}</span>
             <span className="text-outline-variant">•</span>
             <span>استهلاك شهري {Math.round(monthlyKwh).toLocaleString('ar-EG')} ك.و.س</span>
           </p>

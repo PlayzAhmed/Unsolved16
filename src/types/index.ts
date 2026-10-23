@@ -17,8 +17,11 @@ export interface BillData {
   confidence?: number;
   lowConfidence?: boolean;
   extractedText?: string;
-  source?: "gemini" | "vision" | "tesseract" | "pdf_text" | "regex" | "fallback" | "demo";
+  source?: "gemini" | "vision" | "tesseract" | "pdf_text" | "regex" | "fallback" | "demo" | "manual";
   warning?: string;
+  isElectricityBill?: boolean;
+  isEgyptianBusinessBill?: boolean;
+  validationReason?: string;
 }
 
 export type RoofAreaSource =
@@ -49,6 +52,7 @@ export interface RooftopData {
     usableAreaSource?: "google_solar" | "utilization_factor" | "manual";
     hasGoogleKey?: boolean;
     zoom?: number;
+    businessName?: string;
   };
 }
 

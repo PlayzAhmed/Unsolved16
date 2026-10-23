@@ -814,6 +814,13 @@ export function PdfReport({
     try {
       setIsGenerating(true);
       const meta = createReportMeta();
+      const issuedAt = new Date();
+      const dateStr = issuedAt.toLocaleDateString("ar-EG", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      const refNumber = `ET-${issuedAt.getFullYear()}-${String(issuedAt.getTime()).slice(-6)}`;
       const doc = (
         <BankProposalDocument
           solarResult={solarResult}

@@ -16,6 +16,8 @@ export interface BillUploaderProps {
   className?: string;
 }
 
+type OcrStatus = 'idle' | 'processing' | 'success' | 'failed';
+
 const DEMO_BILLS = [
   {
     name: 'مخبز المعادي التجاري',
@@ -50,42 +52,55 @@ export function BillUploader({
   className,
 }: BillUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState<OcrStatus>('idle');
   const [fileName, setFileName] = useState<string | null>(null);
-  const [parsedMeter, setParsedMeter] = useState<string | null>('EGY-ME-90214');
+  const [parsedMeter, setParsedMeter] = useState<string | null>(null);
+  const [ocrWarning, setOcrWarning] = useState<string | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processBill = async (file?: File) => {
-    setIsProcessing(true);
+    if (!file) return;
+
+    setOcrStatus('processing');
+    setOcrWarning(null);
+    setParsedMeter(null);
+    setManualOpen(false);
+    setFileName(file.name);
+
     try {
       const formData = new FormData();
-      if (file) {
-        formData.append('billFile', file);
-        setFileName(file.name);
-      }
+      formData.append('billFile', file);
 
       const res = await fetch('/api/analyze-bill', {
         method: 'POST',
-        body: file ? formData : JSON.stringify({ totalCostEgp: monthlySpendEgp }),
-        headers: file ? undefined : { 'Content-Type': 'application/json' },
+        body: formData,
       });
 
-      const json = await res.json();
-      if (json.success && json.data) {
-        const { totalCostEgp, kwhConsumption, meterNumber } = json.data;
+      const json: { success?: boolean; data?: BillData; error?: string } = await res.json();
+      const data = json.data;
+      const hasReadableValues = Boolean(data?.totalCostEgp || data?.kwhConsumption);
+
+      if (res.ok && json.success && data && hasReadableValues && !data.lowConfidence) {
+        const { totalCostEgp, kwhConsumption, meterNumber } = data;
         if (totalCostEgp) onSpendChange(totalCostEgp);
         if (kwhConsumption) onKwhChange(kwhConsumption);
         if (meterNumber) setParsedMeter(meterNumber);
+        setOcrStatus('success');
         if (onBillParsed) {
-          onBillParsed(json.data);
+          onBillParsed(data);
         }
+      } else {
+        setOcrStatus('failed');
+        setOcrWarning(data?.warning || json.error || 'لم نتمكن من قراءة بيانات الفاتورة بوضوح. أدخل القيم يدويًا أو أعد المسح.');
+        setManualOpen(true);
       }
     } catch {
-      onSpendChange(4120);
-      onKwhChange(1450);
+      setOcrStatus('failed');
+      setOcrWarning('تعذر الاتصال بخدمة قراءة الفاتورة. أدخل القيم يدويًا أو أعد المسح.');
+      setManualOpen(true);
     } finally {
-      setIsProcessing(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -104,6 +119,8 @@ export function BillUploader({
   };
 
   const selectDemoProfile = (demo: (typeof DEMO_BILLS)[0]) => {
+    setOcrStatus('success');
+    setOcrWarning(null);
     setFileName(`فاتورة_${demo.name}.pdf`);
     setParsedMeter(demo.meter);
     onSpendChange(demo.spend);
@@ -169,7 +186,7 @@ export function BillUploader({
           onChange={handleFileChange}
         />
 
-        {isProcessing ? (
+        {ocrStatus === 'processing' ? (
           <div className="flex flex-col items-center justify-center py-4">
             <AppIcon name="refresh" className="text-primary animate-spin mb-2" size={36} />
             <p className="font-headline-sm text-headline-sm text-on-surface font-bold">
@@ -201,7 +218,34 @@ export function BillUploader({
         )}
       </div>
 
+      {ocrStatus === 'idle' && (
+        <div className="w-full rounded-xl bg-surface p-3 shadow-sm flex items-center gap-2 text-on-surface-variant">
+          <AppIcon name="document_scanner" className="text-primary" size={20} />
+          <span className="font-label-md text-label-md">ارفع فاتورة لبدء القراءة التلقائية، أو أدخل القيم يدويًا.</span>
+        </div>
+      )}
+
+      {ocrStatus === 'failed' && (
+        <div className="w-full rounded-xl border border-error/30 bg-error-container/30 p-3 shadow-sm flex flex-col gap-2">
+          <div className="flex items-start gap-2 text-on-error-container">
+            <AppIcon name="error" className="shrink-0 mt-0.5" size={20} />
+            <div>
+              <p className="font-label-md text-label-md font-bold">لم تكتمل قراءة الفاتورة</p>
+              <p className="font-body-sm text-body-sm mt-0.5">{ocrWarning}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="self-start rounded-lg bg-surface-container-lowest px-3 py-2 font-label-sm text-label-sm font-bold text-primary hover:bg-surface-container transition-colors"
+          >
+            أعد مسح الفاتورة
+          </button>
+        </div>
+      )}
+
       {/* Bill Processing Mockup Card (Dynamic Result State) */}
+      {ocrStatus === 'success' && (
       <div className="w-full rounded-xl bg-surface p-3 shadow-sm flex flex-col gap-2 relative">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
@@ -223,9 +267,9 @@ export function BillUploader({
           <div className="flex items-center justify-between border-b border-surface-container-high pb-2">
             <div className="flex items-center gap-2">
               <AppIcon name="bolt" className="text-primary" size={20} />
-              <span className="font-label-md text-label-md text-on-surface font-semibold">شركة جنوب القاهرة لتوزيع الكهرباء</span>
+              <span className="font-label-md text-label-md text-on-surface font-semibold">بيانات قراءة الفاتورة</span>
             </div>
-            <span className="font-label-sm text-label-sm text-on-surface-variant">نشاط تجاري (محلات)</span>
+            <span className="font-label-sm text-label-sm text-on-surface-variant">تم استخراج القيم الأساسية</span>
           </div>
 
           <div className="grid grid-cols-2 gap-2 pt-1">
@@ -251,14 +295,15 @@ export function BillUploader({
           </div>
 
           <div className="flex items-center justify-between pt-1 text-on-surface-variant font-label-sm text-label-sm">
-            <span>الشريحة: تجاري فئة أعلى من ١٠٠٠ ك.و ({parsedMeter})</span>
+            <span>{parsedMeter ? `رقم العداد: ${parsedMeter}` : 'لم يتم العثور على رقم العداد'}</span>
             <span className="text-primary font-bold flex items-center gap-0.5">
               <AppIcon name="check_circle" size={16} />
-              دقة قراءة ٩٩.٤٪
+              قراءة مكتملة
             </span>
           </div>
         </div>
       </div>
+      )}
 
       {/* Preset Demo Profiles */}
       <div className="flex flex-col gap-1.5">

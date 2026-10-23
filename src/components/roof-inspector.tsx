@@ -22,6 +22,7 @@ import {
   type MapPoint,
 } from '@/lib/satellite-map';
 import { cn } from '@/lib/utils';
+import { cn, buildStaticMapUrl } from '@/lib/utils';
 import { AppIcon } from '@/components/ui/app-icon';
 import {
   DEFAULT_ROOF_UTILIZATION_FACTOR,
@@ -209,7 +210,7 @@ export function RoofInspector({
   onBack,
   className,
 }: RoofInspectorProps) {
-  const [address, setAddress] = useState('شارع مصدق، الدقي، الجيزة (مخبز البركة)');
+  const [address, setAddress] = useState('');
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
@@ -229,7 +230,7 @@ export function RoofInspector({
   const [rooftopData, setRooftopData] = useState<RooftopData>(() => ({
     lat: DEFAULT_LAT,
     lng: DEFAULT_LNG,
-    formattedAddress: 'شارع مصدق، الدقي، الجيزة (مخبز البركة)',
+    formattedAddress: '',
     roofAreaM2: DEFAULT_AREA_M2,
     usableAreaM2: DEFAULT_USABLE_AREA_M2,
     areaUtilizationFactor: DEFAULT_ROOF_UTILIZATION_FACTOR,
@@ -1645,6 +1646,23 @@ export function RoofInspector({
           </button>
         </div>
 
+        {/* Business Name Input */}
+        <div className="flex flex-col gap-1 pt-1">
+          <label className="font-label-sm text-label-sm text-on-surface-variant font-medium">
+            اسم المنشأة التجارية <span className="text-outline">(اختياري)</span>
+          </label>
+          <div className="flex items-center bg-surface-container-low rounded-xl px-3 h-10 shadow-inner">
+            <AppIcon name="store" className="text-outline shrink-0 ml-2" size={18} />
+            <input
+              className="bg-transparent border-0 outline-none w-full font-body-sm text-body-sm text-on-surface placeholder:text-outline"
+              placeholder="مثال: مخبز البركة، ورشة المعادي..."
+              type="text"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+            />
+          </div>
+        </div>
+
         {locationError && (
           <div
             role="alert"
@@ -2142,7 +2160,13 @@ export function RoofInspector({
         <button
           type="button"
           onClick={handleProceed}
-          className="w-full h-14 bg-secondary-container hover:bg-secondary-fixed-dim text-on-secondary-container rounded-xl font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-secondary-container/20 active:scale-[0.98] transition-all cursor-pointer"
+          disabled={!address.trim()}
+          className={cn(
+            'w-full h-14 rounded-2xl font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-transform cursor-pointer',
+            address.trim()
+              ? 'bg-secondary-container text-on-secondary-container'
+              : 'bg-surface-container-highest text-outline cursor-not-allowed opacity-60'
+          )}
         >
           <AppIcon name="wb_sunny" size={24} />
           <span>احسب التوفير وافتح لوحة التحكم</span>
