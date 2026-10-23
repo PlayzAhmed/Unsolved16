@@ -12,8 +12,9 @@ import { calculateKwhFromEgp } from '@/lib/egypt-tariffs';
 import type { RooftopData, BillData, RoofAreaSource } from '@/types';
 import { SolarSlider } from '@/components/solar-slider';
 import { AppIcon } from '@/components/ui/app-icon';
-import { cn, buildStaticMapUrl } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { useFirebaseAuth } from '@/components/firebase-auth-provider';
+import { authenticatedFetch } from '@/lib/firebase/api-client';
 
 const AREA_SOURCES: RoofAreaSource[] = [
   'google_solar',
@@ -32,6 +33,7 @@ function normalizeAreaSource(value: string | null): RoofAreaSource {
 export function DashboardClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useFirebaseAuth();
 
   const spendParam = searchParams.get('spend');
   const kwhParam = searchParams.get('kwh');
@@ -81,23 +83,16 @@ export function DashboardClient() {
   const lat = latParam ? Number(latParam) : 30.0444;
   const lng = lngParam ? Number(lngParam) : 31.2357;
   const [rooftopData] = useState<RooftopData>({
-    lat,
-    lng,
     formattedAddress: addressParam ? decodeURIComponent(addressParam) : 'عنوان المنشأة',
     polygonAreaM2: areaParam ? Number(areaParam) : 180,
-    staticMapUrl: mapUrlParam
-      ? decodeURIComponent(mapUrlParam)
-      : (latParam && lngParam ? buildStaticMapUrl(lat, lng) : ''),
     lat: latParam ? Number(latParam) : 30.0384,
     lng: lngParam ? Number(lngParam) : 31.2118,
-    formattedAddress: address,
     roofAreaM2: grossAreaM2,
     usableAreaM2,
     areaUtilizationFactor:
       grossAreaM2 > 0
         ? Math.round((usableAreaM2 / grossAreaM2) * 1000) / 1000
         : undefined,
-    polygonAreaM2: grossAreaM2,
     staticMapUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0PS5hO6t4R7MFK8i9is3eD4S8x-EAePtZtAwbXetoXbZgvHCudt3bK0IR51KwcX0Hhv074KKO_zJ7Z4iBvMdKjrDMXI0OX9G8BpKGk_QQ_l1baAOGS3pcfEGR6SUMECudMsjs-pGRhq6I-JtF5uOK-vDb4aQcY8CoR3dwgQDnEWRpyTJi5TYmFoZqHTcgMrIWmEFvz9UB1sqRUETa7uQt5jB-zEbBhfxwcAEKSf07bbJl0dUOeCDn',
     meta: {
       areaSource,
@@ -128,6 +123,29 @@ export function DashboardClient() {
       customerName: customerName || undefined,
     };
   }, [monthlySpendEgp, monthlyKwh, meterNumber, customerName]);
+
+  // The API verifies the current Firebase ID token and derives the owner from it.
+  useEffect(() => {
+    if (!user) return;
+    const timer = window.setTimeout(() => {
+      void authenticatedFetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input: { address, monthlySpendEgp, monthlyKwh, transitionRatio, meterNumber, roofAreaM2: grossAreaM2, usableAreaM2, latitude: rooftopData.lat, longitude: rooftopData.lng },
+          result: {
+            systemCapacityKwp: solarResult.systemCapacityKwp,
+            initialCostEgp: solarResult.initialCostEgp,
+            annualSavingsEgp: solarResult.annualSavingsEgp,
+            paybackPeriodYears: solarResult.paybackPeriodYears,
+            greenScore: solarResult.greenScore,
+            co2ReductionTons: solarResult.co2ReductionTons,
+          },
+        }),
+      }).catch((error: unknown) => console.error('Unable to save calculation history:', error));
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [address, grossAreaM2, meterNumber, monthlyKwh, monthlySpendEgp, rooftopData.lat, rooftopData.lng, solarResult, transitionRatio, usableAreaM2, user]);
 
   // Animated Count-Up for Annual Savings
   const [displaySavings, setDisplaySavings] = useState(solarResult.annualSavingsEgp);
@@ -169,7 +187,6 @@ export function DashboardClient() {
     if (customerName) params.set('name', encodeURIComponent(customerName));
     if (rooftopData.staticMapUrl) params.set('mapUrl', encodeURIComponent(rooftopData.staticMapUrl));
     return `/report?${params.toString()}`;
-<<<<<<< Yours (main)
   }, [
     monthlySpendEgp,
     monthlyKwh,
@@ -180,12 +197,8 @@ export function DashboardClient() {
     grossAreaM2,
     areaSource,
     rooftopData,
+    customerName
   ]);
-||||||| Base
-  }, [monthlySpendEgp, monthlyKwh, transitionRatio, address, meterNumber, areaM2, rooftopData]);
-=======
-  }, [monthlySpendEgp, monthlyKwh, transitionRatio, address, meterNumber, areaM2, rooftopData, customerName]);
->>>>>>> Theirs (main (from origin))
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(

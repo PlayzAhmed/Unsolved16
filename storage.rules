@@ -1,0 +1,11 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Banking PDFs are uploaded by the server after it verifies the ID token.
+    // Keeping client Storage access closed prevents guessed report IDs from
+    // exposing financial documents.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

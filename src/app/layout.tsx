@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { FirebaseAuthProvider } from '@/components/firebase-auth-provider';
 
 export const metadata: Metadata = {
   title: 'EnergyTwin AI | تقييم التحول للطاقة الشمسية للشركات المصرية',
@@ -23,7 +24,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased min-h-screen bg-surface text-on-surface font-arabic selection:bg-secondary-fixed selection:text-on-secondary-fixed">
-        {children}
+        <FirebaseAuthProvider>{children}</FirebaseAuthProvider>
       </body>
     </html>
   );

@@ -11,6 +11,7 @@ import type { RooftopData, BillData, RoofAreaSource } from '@/types';
 import { BankProposalDocument, createReportMeta } from '@/components/pdf-report';
 import { AppIcon } from '@/components/ui/app-icon';
 import { cn, buildStaticMapUrl } from '@/lib/utils';
+import { authenticatedFetch } from '@/lib/firebase/api-client';
 
 export function GreenReport() {
   const searchParams = useSearchParams();
@@ -107,7 +108,8 @@ export function GreenReport() {
     solarResult.initialCostEgp * (0.05 / 12) / (1 - Math.pow(1 + 0.05 / 12, -36))
   );
   const netMonthlySurplus = Math.round(solarResult.monthlySavingsEgp - monthlyLoanPayment);
-  const reportId = `ET-2026-${Math.floor(8000 + solarResult.systemCapacityKwp * 100)}`;
+  const [reportId, setReportId] = useState<string | null>(null);
+  const displayReportId = reportId ?? 'ET-PENDING';
   const annualKwhEstimate = Math.round(solarResult.systemCapacityKwp * 5 * 365);
 
   const handleDownloadPdf = async () => {
@@ -115,8 +117,30 @@ export function GreenReport() {
     setPdfError(null);
     try {
       setIsGeneratingPdf(true);
+      const authorization = await authenticatedFetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address,
+          monthlySpendEgp,
+          monthlyKwh,
+          transitionRatio,
+          meterNumber,
+          roofAreaM2: grossAreaM2,
+          usableAreaM2,
+          latitude: lat,
+          longitude: lng,
+        }),
+      });
+      if (!authorization.ok) throw new Error('Unable to authorize this report.');
+      const authorizationData: unknown = await authorization.json();
+      if (!authorizationData || typeof authorizationData !== 'object' || typeof (authorizationData as { reportId?: unknown }).reportId !== 'string') {
+        throw new Error('Invalid report authorization response.');
+      }
+      const authorizedReportId = (authorizationData as { reportId: string }).reportId;
+      setReportId(authorizedReportId);
       const { pdf } = await import('@react-pdf/renderer');
-      const meta = createReportMeta(new Date(), reportId);
+      const meta = createReportMeta(new Date(), authorizedReportId);
       const doc = (
         <BankProposalDocument
           solarResult={solarResult}
@@ -126,10 +150,15 @@ export function GreenReport() {
         />
       );
       const blob = await pdf(doc).toBlob();
+      const upload = new FormData();
+      upload.set('reportId', authorizedReportId);
+      upload.set('pdf', new File([blob], `${authorizedReportId}.pdf`, { type: 'application/pdf' }));
+      const stored = await authenticatedFetch('/api/reports', { method: 'POST', body: upload });
+      if (!stored.ok) throw new Error('Unable to securely store this report.');
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `تقرير_التمويل_الأخضر_${reportId}.pdf`;
+      link.download = `تقرير_التمويل_الأخضر_${authorizedReportId}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -144,7 +173,7 @@ export function GreenReport() {
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
-      `يا فنان هذا تقرير الجدارة الائتمانية الخضراء لـ ${address} (كود #${reportId}) بفائدة ٥٪ ميسرة عبر EnergyTwin AI: التوفير الشهري ${solarResult.monthlySavingsEgp.toLocaleString('ar-EG')} ج.م وصافي الفائض ${netMonthlySurplus.toLocaleString('ar-EG')} ج.م/شهر!`
+      `يا فنان هذا تقرير الجدارة الائتمانية الخضراء لـ ${address} (كود #${displayReportId}) بفائدة ٥٪ ميسرة عبر EnergyTwin AI: التوفير الشهري ${solarResult.monthlySavingsEgp.toLocaleString('ar-EG')} ج.م وصافي الفائض ${netMonthlySurplus.toLocaleString('ar-EG')} ج.م/شهر!`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
@@ -162,7 +191,7 @@ export function GreenReport() {
             <AppIcon name="verified" className="text-tertiary-container" size={16} />
             <span>تقرير رسمي معتمد للتمويل</span>
           </div>
-          <span className="text-label-sm font-label-sm text-on-surface-variant font-mono">#{reportId}</span>
+          <span className="text-label-sm font-label-sm text-on-surface-variant font-mono">#{displayReportId}</span>
         </div>
         <h1 className="text-headline-sm font-headline-sm text-primary font-bold pt-1">
           التقرير الفني والمالي للتمويل الأخضر
