@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   calculateSolarSavings,
@@ -12,9 +12,30 @@ import { BankProposalDocument, createReportMeta } from '@/components/pdf-report'
 import { AppIcon } from '@/components/ui/app-icon';
 import { cn, buildStaticMapUrl } from '@/lib/utils';
 import { authenticatedFetch } from '@/lib/firebase/api-client';
+import { useFirebaseAuth } from '@/components/firebase-auth-provider';
+import { useAuthDialog } from '@/components/auth-dialog-provider';
+import { useI18n } from '@/lib/i18n';
+
+type ReportRecordStatus = 'idle' | 'saving' | 'stored' | 'error';
+
+interface ReportIdentity {
+  signature: string;
+  id: string;
+}
+
+function createReportId(): string {
+  const suffix =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase()
+      : Math.random().toString(16).slice(2, 14).padEnd(12, '0').toUpperCase();
+  return `ET-${new Date().getFullYear()}-${suffix}`;
+}
 
 export function GreenReport() {
+  const { t, formatNumber, formatDate } = useI18n();
   const searchParams = useSearchParams();
+  const { user } = useFirebaseAuth();
+  const { openAuthDialog } = useAuthDialog();
 
   const spendParam = searchParams.get('spend');
   const kwhParam = searchParams.get('kwh');
@@ -33,6 +54,7 @@ export function GreenReport() {
   const monthlyKwh = kwhParam ? Number(kwhParam) : calculateKwhFromEgp(monthlySpendEgp);
   const transitionRatio = ratioParam ? Number(ratioParam) : 0.8;
   const address = addressParam ? decodeURIComponent(addressParam) : 'عنوان المنشأة';
+  const displayAddress = address === 'عنوان المنشأة' ? t(address) : address;
   const customerName = nameParam ? decodeURIComponent(nameParam) : '';
   const meterNumber = meterParam || 'EGY-ME-90214';
   const grossAreaM2 = grossParam
@@ -59,6 +81,7 @@ export function GreenReport() {
 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfNotice, setPdfNotice] = useState<string | null>(null);
   const [showSchedule, setShowSchedule] = useState(false);
 
   const solarResult = useMemo(() => {
@@ -108,64 +131,201 @@ export function GreenReport() {
     solarResult.initialCostEgp * (0.05 / 12) / (1 - Math.pow(1 + 0.05 / 12, -36))
   );
   const netMonthlySurplus = Math.round(solarResult.monthlySavingsEgp - monthlyLoanPayment);
-  const [reportId, setReportId] = useState<string | null>(null);
-  const displayReportId = reportId ?? 'ET-PENDING';
   const annualKwhEstimate = Math.round(solarResult.systemCapacityKwp * 5 * 365);
+
+  const reportSignature = JSON.stringify([
+    address,
+    monthlySpendEgp,
+    monthlyKwh,
+    transitionRatio,
+    meterNumber,
+    grossAreaM2,
+    usableAreaM2,
+    lat,
+    lng,
+    customerName,
+    areaSource,
+  ]);
+
+  const [reportIdentity, setReportIdentity] = useState<ReportIdentity | null>(null);
+  const [recordState, setRecordState] = useState<{
+    userId: string;
+    reportId: string;
+    status: Exclude<ReportRecordStatus, 'idle'>;
+  } | null>(null);
+  const reportIdentityRef = useRef<ReportIdentity | null>(null);
+  const recordReadyRef = useRef<{ userId: string; reportId: string } | null>(null);
+  const recordPromiseRef = useRef<{ userId: string; promise: Promise<string> } | null>(null);
+
+  const reportId =
+    reportIdentity?.signature === reportSignature ? reportIdentity.id : null;
+  const displayReportId = reportId ?? 'ET-PENDING';
+  const recordStatus: ReportRecordStatus = !user
+    ? 'idle'
+    : recordState?.userId === user.uid && recordState.reportId === reportId
+      ? recordState.status
+      : 'saving';
+
+  useEffect(() => {
+    if (reportIdentityRef.current?.signature === reportSignature) return;
+    const identity = { signature: reportSignature, id: createReportId() };
+    reportIdentityRef.current = identity;
+    recordReadyRef.current = null;
+    recordPromiseRef.current = null;
+    window.setTimeout(() => setReportIdentity(identity), 0);
+  }, [reportSignature]);
+
+  const ensureReportRecord = useCallback(
+    async (id: string): Promise<string> => {
+      if (!user) return id;
+
+      const ready = recordReadyRef.current;
+      if (ready?.userId === user.uid && ready.reportId === id) return id;
+
+      const pending = recordPromiseRef.current;
+      if (pending?.userId === user.uid) return pending.promise;
+
+      setRecordState({ userId: user.uid, reportId: id, status: 'saving' });
+      const promise = (async () => {
+        const response = await authenticatedFetch('/api/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reportId: id,
+            address,
+            monthlySpendEgp,
+            monthlyKwh,
+            transitionRatio,
+            meterNumber,
+            roofAreaM2: grossAreaM2,
+            usableAreaM2,
+            latitude: lat,
+            longitude: lng,
+            customerName: customerName || undefined,
+            areaSource,
+          }),
+        });
+        if (!response.ok) throw new Error(`Unable to register report: ${response.status}`);
+
+        const data: unknown = await response.json();
+        const storedReportId =
+          data &&
+          typeof data === 'object' &&
+          typeof (data as { reportId?: unknown }).reportId === 'string'
+            ? (data as { reportId: string }).reportId
+            : id;
+
+        recordReadyRef.current = { userId: user.uid, reportId: storedReportId };
+        setRecordState({ userId: user.uid, reportId: storedReportId, status: 'stored' });
+        return storedReportId;
+      })().catch((error) => {
+        console.error('Unable to register report in Firestore:', error);
+        setRecordState({ userId: user.uid, reportId: id, status: 'error' });
+        throw error;
+      }).finally(() => {
+        if (recordPromiseRef.current?.promise === promise) {
+          recordPromiseRef.current = null;
+        }
+      });
+
+      recordPromiseRef.current = { userId: user.uid, promise };
+      return promise;
+    },
+    [
+      user,
+      address,
+      monthlySpendEgp,
+      monthlyKwh,
+      transitionRatio,
+      meterNumber,
+      grossAreaM2,
+      usableAreaM2,
+      lat,
+      lng,
+      customerName,
+      areaSource,
+    ]
+  );
+
+  useEffect(() => {
+    if (!user || !reportId) return;
+    void ensureReportRecord(reportId).catch(() => undefined);
+  }, [user, reportId, ensureReportRecord]);
+
+  const buildAndDownloadPdf = async (id: string) => {
+    const { pdf } = await import('@react-pdf/renderer');
+    const meta = createReportMeta(new Date(), id);
+    const doc = (
+      <BankProposalDocument
+        solarResult={solarResult}
+        billData={billData}
+        rooftopData={rooftopData}
+        meta={meta}
+      />
+    );
+    const blob = await pdf(doc).toBlob();
+    return blob;
+  };
+
+  const downloadBlob = (blob: Blob, id: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `تقرير_التمويل_الأخضر_${id}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
   const handleDownloadPdf = async () => {
     if (isGeneratingPdf) return;
+
+    const currentReportId = reportId;
+    if (!currentReportId) {
+      setPdfError(t('جاري تجهيز رقم التقرير. حاول مرة أخرى بعد لحظة.'));
+      return;
+    }
+
     setPdfError(null);
+    setPdfNotice(null);
+    setIsGeneratingPdf(true);
+
     try {
-      setIsGeneratingPdf(true);
-      const authorization = await authenticatedFetch('/api/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address,
-          monthlySpendEgp,
-          monthlyKwh,
-          transitionRatio,
-          meterNumber,
-          roofAreaM2: grossAreaM2,
-          usableAreaM2,
-          latitude: lat,
-          longitude: lng,
-        }),
-      });
-      if (!authorization.ok) throw new Error('Unable to authorize this report.');
-      const authorizationData: unknown = await authorization.json();
-      if (!authorizationData || typeof authorizationData !== 'object' || typeof (authorizationData as { reportId?: unknown }).reportId !== 'string') {
-        throw new Error('Invalid report authorization response.');
+      if (user) {
+        let blob: Blob | null = null;
+        try {
+          const storedReportId = await ensureReportRecord(currentReportId);
+          blob = await buildAndDownloadPdf(storedReportId);
+          downloadBlob(blob, storedReportId);
+
+          const upload = new FormData();
+          upload.set('reportId', storedReportId);
+          upload.set('pdf', new File([blob], `${storedReportId}.pdf`, { type: 'application/pdf' }));
+          const stored = await authenticatedFetch('/api/reports', { method: 'POST', body: upload });
+          if (!stored.ok) throw new Error(stored.status === 413 ? 'REPORT_TOO_LARGE' : 'Unable to securely store this report.');
+          setPdfNotice(t('تم تنزيل التقرير وحفظ نسخة منه في حسابك.'));
+        } catch (cloudError) {
+          console.error('Cloud report failed; downloading locally:', cloudError);
+          const tooLarge = cloudError instanceof Error && cloudError.message === 'REPORT_TOO_LARGE';
+          if (!blob) {
+            blob = await buildAndDownloadPdf(currentReportId);
+            downloadBlob(blob, currentReportId);
+          }
+          setPdfNotice(
+            tooLarge
+              ? t('تم تنزيل التقرير على جهازك، لكن حجمه أكبر من الحد المسموح لحفظه في حسابك.')
+              : t('تم تنزيل التقرير على جهازك، لكن تعذر حفظ نسخة سحابية. حاول مرة أخرى لحفظه في حسابك.')
+          );
+        }
+      } else {
+        const blob = await buildAndDownloadPdf(currentReportId);
+        downloadBlob(blob, currentReportId);
+        setPdfNotice(t('تم تنزيل التقرير على جهازك. سجّل حسابك عشان يتحفظ في حسابك.'));
       }
-      const authorizedReportId = (authorizationData as { reportId: string }).reportId;
-      setReportId(authorizedReportId);
-      const { pdf } = await import('@react-pdf/renderer');
-      const meta = createReportMeta(new Date(), authorizedReportId);
-      const doc = (
-        <BankProposalDocument
-          solarResult={solarResult}
-          billData={billData}
-          rooftopData={rooftopData}
-          meta={meta}
-        />
-      );
-      const blob = await pdf(doc).toBlob();
-      const upload = new FormData();
-      upload.set('reportId', authorizedReportId);
-      upload.set('pdf', new File([blob], `${authorizedReportId}.pdf`, { type: 'application/pdf' }));
-      const stored = await authenticatedFetch('/api/reports', { method: 'POST', body: upload });
-      if (!stored.ok) throw new Error('Unable to securely store this report.');
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `تقرير_التمويل_الأخضر_${authorizedReportId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error('PDF generation error:', err);
-      setPdfError('تعذر إنشاء ملف PDF. من فضلك حاول مرة أخرى.');
+      setPdfError(t('تعذر إنشاء ملف PDF. من فضلك حاول مرة أخرى.'));
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -173,7 +333,12 @@ export function GreenReport() {
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
-      `يا فنان هذا تقرير الجدارة الائتمانية الخضراء لـ ${address} (كود #${displayReportId}) بفائدة ٥٪ ميسرة عبر EnergyTwin AI: التوفير الشهري ${solarResult.monthlySavingsEgp.toLocaleString('ar-EG')} ج.م وصافي الفائض ${netMonthlySurplus.toLocaleString('ar-EG')} ج.م/شهر!`
+      t('هذا تقرير الجدارة الائتمانية الخضراء لـ {address} (كود #{id}) بفائدة ٥٪ ميسرة عبر EnergyTwin AI: التوفير الشهري {savings} ج.م وصافي الفائض {surplus} ج.م/شهر!', {
+        address: displayAddress,
+        id: displayReportId,
+        savings: formatNumber(Math.round(solarResult.monthlySavingsEgp)),
+        surplus: formatNumber(netMonthlySurplus),
+      })
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
@@ -182,6 +347,22 @@ export function GreenReport() {
     window.print();
   };
 
+  const recordStatusText = !user
+    ? t('نسخة محلية — وضع الزائر')
+    : recordStatus === 'stored'
+      ? t('موثق رقمياً ومسجل في حسابك')
+      : recordStatus === 'error'
+        ? t('تعذر تسجيل التقرير — جرّب التنزيل لإعادة المحاولة')
+        : t('جاري تسجيل التقرير في حسابك...');
+
+  const recordStatusDotClass = !user
+    ? 'bg-outline'
+    : recordStatus === 'stored'
+      ? 'bg-primary animate-pulse'
+      : recordStatus === 'error'
+        ? 'bg-error'
+        : 'bg-secondary animate-pulse';
+
   return (
     <div className="flex flex-col w-full pb-28 space-y-4">
       {/* Top Document Credential Banner */}
@@ -189,24 +370,64 @@ export function GreenReport() {
         <div className="flex items-center justify-between gap-1">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed text-label-sm font-label-sm font-semibold">
             <AppIcon name="verified" className="text-tertiary-container" size={16} />
-            <span>تقرير رسمي معتمد للتمويل</span>
+            <span>{t('تقرير رسمي معتمد للتمويل')}</span>
           </div>
-          <span className="text-label-sm font-label-sm text-on-surface-variant font-mono">#{displayReportId}</span>
+          {reportId ? (
+            <span dir="ltr" className="shrink-0 whitespace-nowrap text-[11px] font-mono text-on-surface-variant">#{reportId}</span>
+          ) : (
+            <span className="flex items-center gap-1 text-label-sm font-label-sm text-on-surface-variant">
+              <AppIcon name="refresh" className="animate-spin" size={13} />
+              <span>{t('جاري ترقيم التقرير...')}</span>
+            </span>
+          )}
         </div>
         <h1 className="text-headline-sm font-headline-sm text-primary font-bold pt-1">
-          التقرير الفني والمالي للتمويل الأخضر
+          {t('التقرير الفني والمالي للتمويل الأخضر')}
         </h1>
         <p className="text-body-sm font-body-sm text-on-surface-variant leading-relaxed">
-          صالح للتقديم لدى البنوك المصرية (مبادرة البنك المركزي المصري لدعم المشروعات الصغيرة والمتوسطة بفائدة 5% متناقصة)
+          {t('صالح للتقديم لدى البنوك المصرية (مبادرة البنك المركزي المصري لدعم المشروعات الصغيرة والمتوسطة بفائدة 5% متناقصة)')}
         </p>
         <div className="flex items-center justify-between pt-1 border-t border-surface-dim/40 text-label-sm font-label-sm text-on-surface-variant">
-          <span className="flex items-center gap-1 text-primary font-semibold">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-            موثق رقمياً ومسجل رسمياً
+          <span
+            className={cn(
+              'flex items-center gap-1 font-semibold',
+              !user
+                ? 'text-on-surface-variant'
+                : recordStatus === 'error'
+                  ? 'text-error'
+                  : 'text-primary'
+            )}
+          >
+            <span className={cn('w-2 h-2 rounded-full', recordStatusDotClass)}></span>
+            {recordStatusText}
           </span>
-          <span>تاريخ الصدور: {new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          <span>{t('تاريخ الصدور: {date}', { date: formatDate(new Date(), { year: 'numeric', month: 'long', day: 'numeric' }) })}</span>
         </div>
       </div>
+
+      {/* Guest / account prompt for report persistence */}
+      {!user && (
+        <div className="rounded-xl bg-primary-fixed/25 border border-primary/10 p-3 flex items-start gap-2.5 shadow-sm">
+          <div className="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-primary shrink-0">
+            <AppIcon name="cloud_upload" size={18} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-label-md text-label-md font-bold text-on-surface">
+              {t('التقرير هيتنزّل على جهازك فقط')}
+            </p>
+            <p className="font-label-sm text-label-sm text-on-surface-variant leading-relaxed mt-0.5">
+              {t('في وضع الزائر مش بنقدر نحفظ نسخة من التقرير في حسابك. اعمل حساب مجاني عشان يفضل معاك.')}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => openAuthDialog('signup')}
+            className="h-8 px-2.5 rounded-lg bg-primary text-on-primary text-label-sm font-bold shrink-0 active:scale-95 transition-transform cursor-pointer"
+          >
+            {t('سجّل حسابك')}
+          </button>
+        </div>
+      )}
 
       {/* Bank-Ready Document Sheet Preview (The Official Dossier) */}
       <div className="relative bg-surface-container-lowest rounded-xl shadow-md overflow-hidden p-4 space-y-4">
@@ -221,12 +442,12 @@ export function GreenReport() {
               <AppIcon name="account_balance" className="text-on-primary" size={22} />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-label-md font-label-md text-primary font-bold">ملف الجدارة الائتمانية الخضراء</span>
-              <span className="text-label-sm font-label-sm text-on-surface-variant truncate">نموذج دراسة الطاقة الشمسية التجارية</span>
+              <span className="text-label-md font-label-md text-primary font-bold">{t('ملف الجدارة الائتمانية الخضراء')}</span>
+              <span className="text-label-sm font-label-sm text-on-surface-variant truncate">{t('نموذج دراسة الطاقة الشمسية التجارية')}</span>
             </div>
           </div>
           <div className="px-2 py-1 rounded bg-surface-container-highest text-on-surface font-mono text-label-sm font-bold">
-            EGP / ج.م
+            {t('EGP / ج.م')}
           </div>
         </div>
 
@@ -234,30 +455,30 @@ export function GreenReport() {
         <div className="space-y-1">
           <div className="flex items-center gap-1.5 text-primary">
             <AppIcon name="store" size={20} />
-            <h2 className="text-label-lg font-label-lg font-bold">بيانات المنشأة والتعاقد الكهربائي</h2>
+            <h2 className="text-label-lg font-label-lg font-bold">{t('بيانات المنشأة والتعاقد الكهربائي')}</h2>
           </div>
           <div className="bg-surface-container-low rounded-lg p-3 space-y-2">
             <div className="flex justify-between items-center text-body-sm font-body-sm">
-              <span className="text-on-surface-variant">اسم المنشأة التجاري:</span>
-              <span className="font-bold text-on-surface">{customerName || 'المنشأة التجارية'}</span>
+              <span className="text-on-surface-variant">{t('اسم المنشأة التجاري:')}</span>
+              <span className="font-bold text-on-surface">{customerName || t('المنشأة التجارية')}</span>
             </div>
             <div className="flex justify-between items-center text-body-sm font-body-sm">
-              <span className="text-on-surface-variant">السجل التجاري (س.ت):</span>
-              <span className="font-mono font-medium text-on-surface text-on-surface-variant">يُقدَّم عند التقديم للبنك</span>
+              <span className="text-on-surface-variant">{t('السجل التجاري (س.ت):')}</span>
+              <span className="font-mono font-medium text-on-surface text-on-surface-variant">{t('يُقدَّم عند التقديم للبنك')}</span>
             </div>
             <div className="flex justify-between items-center text-body-sm font-body-sm">
-              <span className="text-on-surface-variant">الموقع الجغرافي:</span>
-              <span className="text-on-surface font-medium truncate max-w-[200px]">{address}</span>
+              <span className="text-on-surface-variant">{t('الموقع الجغرافي:')}</span>
+              <span className="text-on-surface font-medium truncate max-w-[200px]">{displayAddress}</span>
             </div>
             <div className="flex justify-between items-center text-body-sm font-body-sm">
-              <span className="text-on-surface-variant">إحداثيات الموقع:</span>
+              <span className="text-on-surface-variant">{t('إحداثيات الموقع:')}</span>
               <span className="font-mono text-label-sm font-label-sm text-on-surface-variant" dir="ltr">
                 {lat.toFixed(4)}° N, {lng.toFixed(4)}° E
               </span>
             </div>
             <div className="flex justify-between items-center text-body-sm font-body-sm">
-              <span className="text-on-surface-variant">الشركة المزودة / العداد:</span>
-              <span className="text-on-surface font-semibold text-primary">جنوب القاهرة - حساب #{meterNumber}</span>
+              <span className="text-on-surface-variant">{t('الشركة المزودة / العداد:')}</span>
+              <span className="text-on-surface font-semibold text-primary">{t('جنوب القاهرة - حساب #{meter}', { meter: meterNumber })}</span>
             </div>
           </div>
         </div>
@@ -267,7 +488,7 @@ export function GreenReport() {
           {staticMapUrl ? (
             <img
               className="w-full h-full object-cover"
-              alt="المعاينة الهندسية لسطح المنشأة بالأقمار الصناعية"
+              alt={t('المعاينة الهندسية لسطح المنشأة بالأقمار الصناعية')}
               src={staticMapUrl}
             />
           ) : (
@@ -279,10 +500,10 @@ export function GreenReport() {
             <div className="flex items-center justify-between w-full text-surface-container-lowest">
               <span className="text-label-sm font-label-sm flex items-center gap-1 font-medium">
                 <AppIcon name="my_location" className="text-secondary-container" size={16} />
-                المعاينة الهندسية لسطح المنشأة
+                {t('المعاينة الهندسية لسطح المنشأة')}
               </span>
               <span className="text-label-sm font-label-sm bg-primary/90 px-2 py-0.5 rounded-full font-bold">
-                {Math.round(solarResult.roofAreaRequiredM2)} م² ملائم للتثبيت
+                {t('{area} م² ملائم للتثبيت', { area: formatNumber(Math.round(solarResult.roofAreaRequiredM2)) })}
               </span>
             </div>
           </div>
@@ -292,38 +513,38 @@ export function GreenReport() {
         <div className="space-y-1">
           <div className="flex items-center gap-1.5 text-primary">
             <AppIcon name="solar_power" size={20} />
-            <h2 className="text-label-lg font-label-lg font-bold">المواصفات الفنية لمنظومة الطاقة (EPC Standard)</h2>
+            <h2 className="text-label-lg font-label-lg font-bold">{t('المواصفات الفنية لمنظومة الطاقة (EPC Standard)')}</h2>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-surface-container-low p-3 rounded-lg flex flex-col">
-              <span className="text-label-sm font-label-sm text-on-surface-variant">قدرة المنظومة الموصى بها</span>
+              <span className="text-label-sm font-label-sm text-on-surface-variant">{t('قدرة المنظومة الموصى بها')}</span>
               <span className="text-headline-sm font-headline-sm text-primary font-bold font-numeric-stat-mobile mt-0.5" dir="ltr">
-                {solarResult.systemCapacityKwp.toFixed(1)} <span className="text-label-md font-label-md font-normal">kWp</span>
+                {formatNumber(Number(solarResult.systemCapacityKwp.toFixed(1)))} <span className="text-label-md font-label-md font-normal">kWp</span>
               </span>
-              <span className="text-label-sm font-label-sm text-on-surface-variant mt-1">كافية لتغطية أحمال المخبز</span>
+              <span className="text-label-sm font-label-sm text-on-surface-variant mt-1">{t('كافية لتغطية أحمال المخبز')}</span>
             </div>
 
             <div className="bg-surface-container-low p-3 rounded-lg flex flex-col">
-              <span className="text-label-sm font-label-sm text-on-surface-variant">الإنتاج السنوي التقديري</span>
+              <span className="text-label-sm font-label-sm text-on-surface-variant">{t('الإنتاج السنوي التقديري')}</span>
               <span className="text-headline-sm font-headline-sm text-tertiary font-bold font-numeric-stat-mobile mt-0.5" dir="ltr">
-                {annualKwhEstimate.toLocaleString('ar-EG')} <span className="text-label-md font-label-md font-normal">kWh</span>
+                {formatNumber(annualKwhEstimate)} <span className="text-label-md font-label-md font-normal">kWh</span>
               </span>
-              <span className="text-label-sm font-label-sm text-on-surface-variant mt-1">معامل إشعاع مصر ٥.٦</span>
+              <span className="text-label-sm font-label-sm text-on-surface-variant mt-1">{t('معامل إشعاع مصر ٥.٦')}</span>
             </div>
 
             <div className="bg-surface-container-low p-3 rounded-lg flex flex-col">
-              <span className="text-label-sm font-label-sm text-on-surface-variant">نوع الخلايا الكهروضوئية</span>
+              <span className="text-label-sm font-label-sm text-on-surface-variant">{t('نوع الخلايا الكهروضوئية')}</span>
               <span className="text-body-sm font-body-sm font-bold text-on-surface mt-1">Monocrystalline</span>
               <span className="text-label-sm font-label-sm text-primary font-medium">Tier-1 High Efficiency</span>
             </div>
 
             <div className="bg-surface-container-low p-3 rounded-lg flex flex-col">
-              <span className="text-label-sm font-label-sm text-on-surface-variant">مساحة السطح المشغولة</span>
+              <span className="text-label-sm font-label-sm text-on-surface-variant">{t('مساحة السطح المشغولة')}</span>
               <span className="text-body-sm font-body-sm font-bold text-on-surface mt-1">
-                {Math.round(solarResult.roofAreaRequiredM2)} م²
+                {t('{area} م²', { area: formatNumber(Math.round(solarResult.roofAreaRequiredM2)) })}
               </span>
               <span className="text-label-sm font-label-sm text-on-surface-variant">
-                من أصل {usableAreaM2} م² صافي (إجمالي {grossAreaM2} م²)
+                {t('من أصل {usable} م² صافي (إجمالي {gross} م²)', { usable: formatNumber(usableAreaM2), gross: formatNumber(grossAreaM2) })}
               </span>
             </div>
           </div>
@@ -333,24 +554,24 @@ export function GreenReport() {
         <div className="bg-gradient-to-br from-primary to-primary-container text-on-primary p-4 rounded-xl space-y-2.5 shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-label-sm font-label-sm uppercase tracking-wider text-on-primary-container font-semibold">
-              تحليل التدفق النقدي المصرفي
+              {t('تحليل التدفق النقدي المصرفي')}
             </span>
             <span className="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-bold text-label-sm">
-              عائد فوري من الشهر الأول
+              {t('عائد فوري من الشهر الأول')}
             </span>
           </div>
 
           <div className="bg-surface-container-lowest/10 backdrop-blur-md p-3 rounded-lg space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-body-sm font-body-sm text-on-primary-container">وفر فاتورة الكهرباء شهرياً:</span>
+              <span className="text-body-sm font-body-sm text-on-primary-container">{t('وفر فاتورة الكهرباء شهرياً:')}</span>
               <span className="text-headline-sm font-headline-sm font-bold font-numeric-stat-mobile text-secondary-fixed">
-                +{solarResult.monthlySavingsEgp.toLocaleString('ar-EG')} ج.م
+                +{formatNumber(Math.round(solarResult.monthlySavingsEgp))} {t('ج.م')}
               </span>
             </div>
             <div className="flex justify-between items-center text-body-sm font-body-sm text-on-primary-container">
-              <span>قسط التمويل الأخضر (5% ميسرة - 36 شهر):</span>
+              <span>{t('قسط التمويل الأخضر (5% ميسرة - 36 شهر):')}</span>
               <span className="font-bold font-numeric-stat-mobile text-on-primary">
-                -{monthlyLoanPayment.toLocaleString('ar-EG')} ج.م
+                -{formatNumber(monthlyLoanPayment)} {t('ج.م')}
               </span>
             </div>
           </div>
@@ -358,29 +579,29 @@ export function GreenReport() {
           {/* Net Monthly Pocket Money */}
           <div className="bg-surface-container-lowest text-on-surface p-3 rounded-lg flex items-center justify-between">
             <div className="flex flex-col">
-              <span className="text-label-sm font-label-sm text-tertiary font-bold">صافي الفائض النقدي الشهري</span>
-              <span className="text-label-sm font-label-sm text-on-surface-variant">يدخل خزينة المحل مباشرة</span>
+              <span className="text-label-sm font-label-sm text-tertiary font-bold">{t('صافي الفائض النقدي الشهري')}</span>
+              <span className="text-label-sm font-label-sm text-on-surface-variant">{t('يدخل خزينة المحل مباشرة')}</span>
             </div>
             <div className="flex items-baseline gap-1 text-primary">
               <span className="text-headline-md font-headline-md font-bold font-numeric-stat-mobile">
-                +{netMonthlySurplus.toLocaleString('ar-EG')}
+                {netMonthlySurplus >= 0 ? '+' : ''}{formatNumber(netMonthlySurplus)}
               </span>
-              <span className="text-label-sm font-label-sm font-semibold">ج.م/شهر</span>
+              <span className="text-label-sm font-label-sm font-semibold">{t('ج.م/شهر')}</span>
             </div>
           </div>
 
           {/* Loan summary stats */}
           <div className="grid grid-cols-2 gap-2 pt-1 text-center">
             <div className="bg-surface-container-lowest/15 rounded p-1.5">
-              <span className="text-label-sm font-label-sm text-on-primary-container block">إجمالي الاستثمار</span>
+              <span className="text-label-sm font-label-sm text-on-primary-container block">{t('إجمالي الاستثمار')}</span>
               <span className="text-label-lg font-label-lg font-bold text-on-primary font-numeric-stat-mobile">
-                {solarResult.initialCostEgp.toLocaleString('ar-EG')} ج.م
+                {formatNumber(solarResult.initialCostEgp)} {t('ج.م')}
               </span>
             </div>
             <div className="bg-surface-container-lowest/15 rounded p-1.5">
-              <span className="text-label-sm font-label-sm text-on-primary-container block">فترة الاسترداد</span>
+              <span className="text-label-sm font-label-sm text-on-primary-container block">{t('فترة الاسترداد')}</span>
               <span className="text-label-lg font-label-lg font-bold text-secondary-fixed font-numeric-stat-mobile">
-                {solarResult.paybackPeriodYears.toFixed(1)} سنة
+                {t('{years} سنة', { years: formatNumber(Number(solarResult.paybackPeriodYears.toFixed(1))) })}
               </span>
             </div>
           </div>
@@ -391,15 +612,15 @@ export function GreenReport() {
           <div className="flex items-center gap-2">
             <AppIcon name="workspace_premium" className="text-primary" size={28} />
             <div className="flex flex-col">
-              <span className="text-label-md font-label-md font-bold text-on-surface">اعتماد قياسات الطاقة المصرية</span>
+              <span className="text-label-md font-label-md font-bold text-on-surface">{t('اعتماد قياسات الطاقة المصرية')}</span>
               <span className="text-label-sm font-label-sm text-on-surface-variant">
-                طبقا لضوابط جهاز تنظيم مرفق الكهرباء وحماية المستهلك (ERA)
+                {t('طبقا لضوابط جهاز تنظيم مرفق الكهرباء وحماية المستهلك (ERA)')}
               </span>
             </div>
           </div>
           <div className="w-14 h-14 rounded-full bg-secondary-fixed/40 flex flex-col items-center justify-center p-1 shrink-0 text-center shadow-inner">
             <AppIcon name="verified_user" className="text-tertiary-container" size={18} />
-            <span className="text-[9px] font-bold text-on-secondary-fixed-variant leading-none mt-0.5">معتمد بنكياً</span>
+            <span className="text-[9px] font-bold text-on-secondary-fixed-variant leading-none mt-0.5">{t('معتمد بنكياً')}</span>
           </div>
         </div>
 
@@ -410,7 +631,7 @@ export function GreenReport() {
             onClick={() => setShowSchedule(!showSchedule)}
             className="text-primary text-label-md font-label-md font-semibold inline-flex items-center gap-1 active:scale-95 transition-transform cursor-pointer"
           >
-            <span>{showSchedule ? 'إخفاء جدول سداد الأقساط' : 'عرض جدول سداد الأقساط الكامل (36 شهراً)'}</span>
+            <span>{showSchedule ? t('إخفاء جدول سداد الأقساط') : t('عرض جدول سداد الأقساط الكامل (36 شهراً)')}</span>
             <AppIcon
               name="expand_more"
               className={cn('transition-transform', showSchedule && 'rotate-180')}
@@ -419,19 +640,19 @@ export function GreenReport() {
           </button>
 
           {showSchedule && (
-            <div className="mt-3 p-3 bg-surface-container rounded-lg text-right text-xs text-on-surface space-y-1">
+            <div className="mt-3 p-3 bg-surface-container rounded-lg text-start text-xs text-on-surface space-y-1">
               <div className="flex justify-between py-1 border-b border-surface-dim font-bold">
-                <span>الفترة</span>
-                <span>القسط الشهري</span>
-                <span>الوفر الشهري</span>
-                <span>صافي الفائض</span>
+                <span>{t('الفترة')}</span>
+                <span>{t('القسط الشهري')}</span>
+                <span>{t('الوفر الشهري')}</span>
+                <span>{t('صافي الفائض')}</span>
               </div>
               {[1, 6, 12, 24, 36].map((m) => (
                 <div key={m} className="flex justify-between py-1 border-b border-surface-dim/40">
-                  <span>الشهر {m}</span>
-                  <span className="font-mono">{monthlyLoanPayment.toLocaleString('ar-EG')} ج.م</span>
-                  <span className="font-mono text-primary">+{solarResult.monthlySavingsEgp.toLocaleString('ar-EG')} ج.م</span>
-                  <span className="font-mono font-bold text-primary">+{netMonthlySurplus.toLocaleString('ar-EG')} ج.م</span>
+                  <span>{t('الشهر {month}', { month: formatNumber(m) })}</span>
+                  <span className="font-mono">{formatNumber(monthlyLoanPayment)} {t('ج.م')}</span>
+                  <span className="font-mono text-primary">+{formatNumber(Math.round(solarResult.monthlySavingsEgp))} {t('ج.م')}</span>
+                  <span className="font-mono font-bold text-primary">{netMonthlySurplus >= 0 ? '+' : ''}{formatNumber(netMonthlySurplus)} {t('ج.م')}</span>
                 </div>
               ))}
             </div>
@@ -444,15 +665,15 @@ export function GreenReport() {
         <div className="w-12 h-12 rounded-full overflow-hidden shrink-0">
           <img
             className="w-full h-full object-cover"
-            alt="صاحب منشأة مصرية مستفيدة"
+            alt={t('صاحب منشأة مصرية مستفيدة')}
             src="https://lh3.googleusercontent.com/aida-public/AB6AXuApC-ZiwpkUY3_ho8oqZ2b_noSYhb1ovvFbMom5NWSDUEG1ArgD25Fqv2Q1czfYKPuLZGZbEGqCFkD5K0iKFdlfVp2910CubPNHKecD37P9Thn-nj8l_t__yhTAK8UakOKdOja6HPgWjc8ccjDnmbiDF6hrbsq_h_flXOwq52tRtx2XdkUHBHIFsbYcU9hCwPP2P6a3rhmZM8d2zHoXnHcKPxe1T6t7w8i7qN1yIjn7MQcFvsi8a5gX"
           />
         </div>
         <div className="flex flex-col min-w-0">
           <span className="text-body-sm font-body-sm text-on-surface font-semibold truncate">
-            &quot;التقرير ده هو اللي البنك طلبه بالظبط لتمويل الـ 5%.&quot;
+            &quot;{t('التقرير ده هو اللي البنك طلبه بالظبط لتمويل الـ 5%.')}&quot;
           </span>
-          <span className="text-label-sm font-label-sm text-on-surface-variant">الحاج جابر البركة - مالك المنشأة</span>
+          <span className="text-label-sm font-label-sm text-on-surface-variant">{t('الحاج جابر البركة - مالك المنشأة')}</span>
         </div>
       </div>
 
@@ -468,12 +689,12 @@ export function GreenReport() {
           {isGeneratingPdf ? (
             <>
               <AppIcon name="refresh" className="animate-spin" size={20} />
-              <span>جاري إنشاء الملف الرقمي المعتمد...</span>
+              <span>{t('جاري إنشاء الملف الرقمي المعتمد...')}</span>
             </>
           ) : (
             <>
               <AppIcon name="download" size={20} />
-              <span>تنزيل تقرير الـ PDF الرسمي (Bank-Ready)</span>
+              <span>{t('تنزيل تقرير الـ PDF الرسمي (Bank-Ready)')}</span>
             </>
           )}
         </button>
@@ -481,6 +702,12 @@ export function GreenReport() {
         {pdfError && (
           <p role="alert" className="text-label-sm font-label-sm font-semibold text-error text-center">
             {pdfError}
+          </p>
+        )}
+
+        {pdfNotice && !pdfError && (
+          <p role="status" className="text-label-sm font-label-sm font-semibold text-primary text-center">
+            {pdfNotice}
           </p>
         )}
 
@@ -492,7 +719,7 @@ export function GreenReport() {
             className="h-11 bg-secondary-container text-on-secondary-container rounded-xl font-label-md text-label-md font-bold flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform cursor-pointer"
           >
             <AppIcon name="chat" size={18} />
-            <span>إرسال للبنك / واتساب</span>
+            <span>{t('إرسال للبنك / واتساب')}</span>
           </button>
           <button
             type="button"
@@ -500,7 +727,7 @@ export function GreenReport() {
             className="h-11 bg-surface-container-high text-on-surface rounded-xl font-label-md text-label-md font-semibold flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform cursor-pointer"
           >
             <AppIcon name="print" className="text-primary" size={18} />
-            <span>طباعة المستند مباشرة</span>
+            <span>{t('طباعة المستند مباشرة')}</span>
           </button>
         </div>
       </div>

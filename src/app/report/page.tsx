@@ -12,7 +12,7 @@ export const metadata = {
 export default function ReportPage() {
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      <Navbar subtitle="Green Bank Report" />
+      <Navbar subtitle="تقرير التمويل الأخضر" />
       <main className="flex-1 w-full pt-16 pb-32 px-4 max-w-lg mx-auto">
         <Suspense
           fallback={

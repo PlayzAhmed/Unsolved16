@@ -14,7 +14,10 @@ import { SolarSlider } from '@/components/solar-slider';
 import { AppIcon } from '@/components/ui/app-icon';
 import { cn } from '@/lib/utils';
 import { useFirebaseAuth } from '@/components/firebase-auth-provider';
+import { useAuthDialog } from '@/components/auth-dialog-provider';
+import { SavedCalculations } from '@/components/saved-calculations';
 import { authenticatedFetch } from '@/lib/firebase/api-client';
+import { useI18n } from '@/lib/i18n';
 
 const AREA_SOURCES: RoofAreaSource[] = [
   'google_solar',
@@ -33,7 +36,9 @@ function normalizeAreaSource(value: string | null): RoofAreaSource {
 export function DashboardClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useFirebaseAuth();
+  const { user, isGuest } = useFirebaseAuth();
+  const { openAuthDialog } = useAuthDialog();
+  const { t, formatNumber, isRtl } = useI18n();
 
   const spendParam = searchParams.get('spend');
   const kwhParam = searchParams.get('kwh');
@@ -60,6 +65,7 @@ export function DashboardClient() {
   const [address] = useState<string>(
     addressParam ? decodeURIComponent(addressParam) : 'عنوان المنشأة'
   );
+  const displayAddress = address === 'عنوان المنشأة' ? t(address) : address;
   const [customerName] = useState<string>(nameParam ? decodeURIComponent(nameParam) : '');
   const [meterNumber] = useState<string>(meterParam || 'EGY-ME-90214');
   const [grossAreaM2] = useState<number>(() => {
@@ -124,27 +130,44 @@ export function DashboardClient() {
     };
   }, [monthlySpendEgp, monthlyKwh, meterNumber, customerName]);
 
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
   // The API verifies the current Firebase ID token and derives the owner from it.
   useEffect(() => {
     if (!user) return;
+
+    const markSaving = window.setTimeout(() => setSaveStatus('saving'), 0);
     const timer = window.setTimeout(() => {
-      void authenticatedFetch('/api/history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          input: { address, monthlySpendEgp, monthlyKwh, transitionRatio, meterNumber, roofAreaM2: grossAreaM2, usableAreaM2, latitude: rooftopData.lat, longitude: rooftopData.lng },
-          result: {
-            systemCapacityKwp: solarResult.systemCapacityKwp,
-            initialCostEgp: solarResult.initialCostEgp,
-            annualSavingsEgp: solarResult.annualSavingsEgp,
-            paybackPeriodYears: solarResult.paybackPeriodYears,
-            greenScore: solarResult.greenScore,
-            co2ReductionTons: solarResult.co2ReductionTons,
-          },
-        }),
-      }).catch((error: unknown) => console.error('Unable to save calculation history:', error));
+      void (async () => {
+        try {
+          const response = await authenticatedFetch('/api/history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              input: { address, monthlySpendEgp, monthlyKwh, transitionRatio, meterNumber, roofAreaM2: grossAreaM2, usableAreaM2, latitude: rooftopData.lat, longitude: rooftopData.lng },
+              result: {
+                systemCapacityKwp: solarResult.systemCapacityKwp,
+                initialCostEgp: solarResult.initialCostEgp,
+                annualSavingsEgp: solarResult.annualSavingsEgp,
+                paybackPeriodYears: solarResult.paybackPeriodYears,
+                greenScore: solarResult.greenScore,
+                co2ReductionTons: solarResult.co2ReductionTons,
+              },
+            }),
+          });
+          if (!response.ok) throw new Error(`History request failed: ${response.status}`);
+          setSaveStatus('saved');
+          window.dispatchEvent(new Event('energytwin:history-saved'));
+        } catch (error) {
+          console.error('Unable to save calculation history:', error);
+          setSaveStatus('error');
+        }
+      })();
     }, 1200);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(markSaving);
+      window.clearTimeout(timer);
+    };
   }, [address, grossAreaM2, meterNumber, monthlyKwh, monthlySpendEgp, rooftopData.lat, rooftopData.lng, solarResult, transitionRatio, usableAreaM2, user]);
 
   // Animated Count-Up for Annual Savings
@@ -202,7 +225,14 @@ export function DashboardClient() {
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
-      `يا فنان شفت حسبة الطاقة الشمسية لـ ${address} على EnergyTwin AI؟ هنوفر ${solarResult.annualSavingsEgp.toLocaleString('ar-EG')} ج.م سنوياً والسيستم يسد تمنه في ${solarResult.paybackPeriodYears.toFixed(1)} سنين بس! ☀️`
+      t(
+        'يا فنان شفت حسبة الطاقة الشمسية لـ {address} على EnergyTwin AI؟ هنوفر {savings} ج.م سنوياً والسيستم يسد تمنه في {years} سنين بس! ☀️',
+        {
+          address: displayAddress,
+          savings: formatNumber(Math.round(solarResult.annualSavingsEgp)),
+          years: formatNumber(Number(solarResult.paybackPeriodYears.toFixed(1))),
+        }
+      )
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
@@ -214,19 +244,70 @@ export function DashboardClient() {
         <div className="flex flex-col">
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-secondary-fixed/50 text-on-secondary-fixed-variant self-start mb-1">
             <AppIcon name="verified_user" className="text-tertiary-container" size={16} />
-            <span className="font-label-sm text-label-sm font-semibold">تحليل معتمد بالتعريفة المصرية ٢٠٢٤</span>
+            <span className="font-label-sm text-label-sm font-semibold">{t('تحليل معتمد بالتعريفة المصرية ٢٠٢٤')}</span>
           </div>
           <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface font-bold tracking-tight">
-            🎉 مبروك يا فنان! سقف محلك منجم ذهب
+            {t('🎉 مبروك يا فنان! سقف محلك منجم ذهب')}
           </h1>
           <p className="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
             <AppIcon name="storefront" className="text-primary" size={16} />
-            <span className="truncate max-w-[180px]">{customerName || address}</span>
+            <span className="truncate max-w-[180px]">{customerName || displayAddress}</span>
             <span className="text-outline-variant">•</span>
-            <span>استهلاك شهري {Math.round(monthlyKwh).toLocaleString('ar-EG')} ك.و.س</span>
+            <span>{t('استهلاك شهري {kwh} ك.و.س', { kwh: formatNumber(Math.round(monthlyKwh)) })}</span>
           </p>
         </div>
       </div>
+
+      {/* Account / automatic-save state */}
+      {user ? (
+        <div
+          className={cn(
+            'mb-3 flex items-center gap-1.5 px-1 font-label-sm text-label-sm',
+            saveStatus === 'error' ? 'text-error' : 'text-on-surface-variant'
+          )}
+        >
+          <AppIcon
+            name={saveStatus === 'saving' ? 'sync' : saveStatus === 'error' ? 'warning' : 'cloud_done'}
+            className={cn(
+              saveStatus === 'error' ? 'text-error' : 'text-primary',
+              saveStatus === 'saving' && 'animate-spin'
+            )}
+            size={16}
+          />
+          <span>
+            {saveStatus === 'saving'
+              ? t('جاري حفظ التحليل في حسابك...')
+              : saveStatus === 'error'
+                ? t('تعذر حفظ التحليل. جرّب تحديث الصفحة أو سجّل الدخول من جديد.')
+                : saveStatus === 'saved'
+                  ? t('التحليل محفوظ في حسابك على Firebase.')
+                  : t('التحليل هيتحفظ في حسابك تلقائياً.')}
+          </span>
+        </div>
+      ) : (
+        <div className="mb-4 rounded-xl bg-primary-fixed/25 border border-primary/10 p-3 flex items-start gap-2.5 shadow-sm">
+          <div className="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-primary shrink-0">
+            <AppIcon name={isGuest ? 'person' : 'login'} size={18} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-label-md text-label-md font-bold text-on-surface">
+              {isGuest ? t('أنت في وضع الزائر — التحليل مش هيتحفظ') : t('سجّل دخولك عشان نحفظ التحليل')}
+            </p>
+            <p className="font-label-sm text-label-sm text-on-surface-variant leading-relaxed mt-0.5">
+              {isGuest
+                ? t('كل الأدوات شغالة، لكن سجل التحليلات والتقارير بيتحفظ في الحساب فقط.')
+                : t('اعمل حساب مجاني عشان نحفظ الحسبة والتقرير في حسابك وترجع لهم في أي وقت.')}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => openAuthDialog(isGuest ? 'signup' : 'signin')}
+            className="h-8 px-2.5 rounded-lg bg-primary text-on-primary text-label-sm font-bold shrink-0 active:scale-95 transition-transform cursor-pointer"
+          >
+            {isGuest ? t('سجّل حسابك') : t('دخول')}
+          </button>
+        </div>
+      )}
 
       {/* Hero KPI Card: The Money Moment */}
       <div className="relative w-full rounded-xl overflow-hidden shadow-md bg-gradient-to-br from-secondary-container via-secondary-fixed to-tertiary-fixed p-4 sm:p-5 mb-4 text-on-secondary-container">
@@ -237,20 +318,20 @@ export function DashboardClient() {
           <div className="flex items-center justify-between mb-1">
             <span className="font-label-md text-label-md font-bold px-2.5 py-1 rounded-full bg-surface-container-lowest/70 text-on-secondary-fixed-variant backdrop-blur-sm flex items-center gap-1">
               <AppIcon name="wb_sunny" className="text-tertiary-container" size={16} />
-              <span>توفير سنوي صافي في جيبك</span>
+              <span>{t('توفير سنوي صافي في جيبك')}</span>
             </span>
             <span className="font-label-sm text-label-sm text-on-secondary-fixed-variant font-medium bg-surface-container-lowest/50 px-2 py-0.5 rounded-full">
-              صافي الربح التراكمي
+              {t('صافي الربح التراكمي')}
             </span>
           </div>
 
           {/* Live Dynamic Metric */}
           <div className="flex items-baseline gap-2 my-1">
             <span className="font-display-hero-mobile text-display-hero-mobile font-bold tracking-tight text-on-secondary-fixed">
-              {displaySavings.toLocaleString('ar-EG')}
+              {formatNumber(displaySavings)}
             </span>
             <span className="font-headline-md text-headline-md font-semibold text-on-secondary-fixed">
-              ج.م
+              {t('ج.م')}
             </span>
           </div>
 
@@ -259,7 +340,7 @@ export function DashboardClient() {
               <AppIcon name="trending_down" className="text-primary" size={18} />
             </div>
             <p className="font-body-sm text-body-sm text-on-secondary-fixed-variant font-medium">
-              يعادل خفض <span className="font-bold text-primary font-numeric-stat-mobile">{reductionPercentage}٪</span> من فاتورة الكهرباء الحالية
+              {t('يعادل خفض')} <span className="font-bold text-primary font-numeric-stat-mobile">{formatNumber(reductionPercentage)}٪</span> {t('من فاتورة الكهرباء الحالية')}
             </p>
           </div>
         </div>
@@ -281,19 +362,19 @@ export function DashboardClient() {
               <AppIcon name="solar_power" className="text-primary" size={24} />
             </div>
             <div className="flex flex-col">
-              <span className="font-label-md text-label-md text-on-surface-variant">تكلفة النظام التقديرية</span>
+              <span className="font-label-md text-label-md text-on-surface-variant">{t('تكلفة النظام التقديرية')}</span>
               <div className="flex items-baseline gap-1 mt-0.5">
                 <span className="font-headline-md text-headline-md font-bold text-on-surface">
-                  {solarResult.initialCostEgp.toLocaleString('ar-EG')}
+                  {formatNumber(solarResult.initialCostEgp)}
                 </span>
-                <span className="font-body-sm text-body-sm font-semibold text-on-surface-variant">ج.م</span>
+                <span className="font-body-sm text-body-sm font-semibold text-on-surface-variant">{t('ج.م')}</span>
               </div>
               <span className="font-label-sm text-label-sm text-on-surface-variant">
-                نظام {solarResult.systemCapacityKwp.toFixed(1)} ك.و · شامل التركيب
+                {t('نظام {capacity} ك.و · شامل التركيب', { capacity: formatNumber(Number(solarResult.systemCapacityKwp.toFixed(1))) })}
               </span>
             </div>
           </div>
-          <AppIcon name="chevron_left" className="text-outline-variant" size={20} />
+          <AppIcon name={isRtl ? 'chevron_left' : 'chevron_right'} className="text-outline-variant" size={20} />
         </div>
 
         {/* Card 2: Payback Period */}
@@ -303,18 +384,18 @@ export function DashboardClient() {
               <AppIcon name="hourglass_top" className="text-secondary" size={24} />
             </div>
             <div className="flex flex-col">
-              <span className="font-label-md text-label-md text-on-surface-variant">استرداد رأس المال (Payback)</span>
+              <span className="font-label-md text-label-md text-on-surface-variant">{t('استرداد رأس المال (Payback)')}</span>
               <div className="flex items-baseline gap-1 mt-0.5">
                 <span className="font-headline-md text-headline-md font-bold text-secondary">
-                  {solarResult.paybackPeriodYears.toFixed(1)}
+                  {formatNumber(Number(solarResult.paybackPeriodYears.toFixed(1)))}
                 </span>
-                <span className="font-headline-sm text-headline-sm font-semibold text-secondary">سنة</span>
+                <span className="font-headline-sm text-headline-sm font-semibold text-secondary">{t('سنة')}</span>
               </div>
-              <span className="font-label-sm text-label-sm text-primary font-semibold">وبعدها الكهربا ببلاش لمدة ٢٠ سنة!</span>
+              <span className="font-label-sm text-label-sm text-primary font-semibold">{t('وبعدها الكهربا ببلاش لمدة ٢٠ سنة!')}</span>
             </div>
           </div>
           <div className="px-2 py-1 rounded bg-secondary-fixed/30 text-secondary text-label-sm font-bold">
-            عائد مميز
+            {t('عائد مميز')}
           </div>
         </div>
 
@@ -325,13 +406,13 @@ export function DashboardClient() {
               <AppIcon name="energy_savings_leaf" className="text-primary" size={24} />
             </div>
             <div className="flex flex-col">
-              <span className="font-label-md text-label-md text-on-surface-variant">تغطية الطاقة الشمسية</span>
+              <span className="font-label-md text-label-md text-on-surface-variant">{t('تغطية الطاقة الشمسية')}</span>
               <div className="flex items-baseline gap-1 mt-0.5">
                 <span className="font-headline-md text-headline-md font-bold text-primary">
-                  {solarResult.greenScore}٪
+                  {formatNumber(solarResult.greenScore)}٪
                 </span>
               </div>
-              <span className="font-label-sm text-label-sm text-on-surface-variant">من استهلاك المحل الإجمالي</span>
+              <span className="font-label-sm text-label-sm text-on-surface-variant">{t('من استهلاك المحل الإجمالي')}</span>
             </div>
           </div>
 
@@ -372,11 +453,14 @@ export function DashboardClient() {
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-secondary-container"></span>
             <span className="font-label-md text-label-md text-on-surface font-medium truncate max-w-[200px]">
-              {address}
+              {displayAddress}
             </span>
           </div>
           <span className="font-label-sm text-label-sm text-on-surface-variant font-numeric-stat-mobile">
-            السطح: {grossAreaM2} م² · صافي {usableAreaM2} م²
+            {t('السطح: {gross} م² · صافي {usable} م²', {
+              gross: formatNumber(grossAreaM2),
+              usable: formatNumber(usableAreaM2),
+            })}
           </span>
         </div>
       </div>
@@ -384,7 +468,7 @@ export function DashboardClient() {
       {/* Egyptian Tariff Tier Comparison (Expandable) */}
       <div className="rounded-xl bg-surface-container-lowest shadow-sm mb-4 overflow-hidden">
         <button
-          className="w-full p-4 flex items-center justify-between text-right active:bg-surface-container-low transition-colors cursor-pointer"
+          className="w-full p-4 flex items-center justify-between text-start active:bg-surface-container-low transition-colors cursor-pointer"
           onClick={() => setTariffAccordionOpen(!tariffAccordionOpen)}
           type="button"
         >
@@ -394,10 +478,10 @@ export function DashboardClient() {
             </div>
             <div className="flex flex-col">
               <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-                مقارنة شرائح الكهرباء التجارية
+                {t('مقارنة شرائح الكهرباء التجارية')}
               </span>
               <span className="font-label-sm text-label-sm text-on-surface-variant">
-                وفر فوري بتجنب الشريحة الرابعة
+                {t('وفر فوري بتجنب الشريحة الرابعة')}
               </span>
             </div>
           </div>
@@ -415,12 +499,12 @@ export function DashboardClient() {
               <div className="flex items-center justify-between">
                 <span className="font-label-sm text-label-sm font-bold text-on-error-container flex items-center gap-1">
                   <AppIcon name="warning" className="text-error" size={16} />
-                  وضعك الحالي (بدون طاقة شمسية)
+                  {t('وضعك الحالي (بدون طاقة شمسية)')}
                 </span>
-                <span className="font-label-sm text-label-sm text-error font-bold">٢.٧٩ ج/ك.و.س</span>
+                <span className="font-label-sm text-label-sm text-error font-bold">{t('٢.٧٩ ج/ك.و.س')}</span>
               </div>
               <p className="font-body-sm text-body-sm text-on-surface-variant">
-                الشريحة التجارية الخامسة (أكتر من ١٠٠٠ ك.و.س شهريًا). الفاتورة بتتحاسب بالكامل على السعر الأعلى بأثر رجعي.
+                {t('الشريحة التجارية الخامسة (أكتر من ١٠٠٠ ك.و.س شهريًا). الفاتورة بتتحاسب بالكامل على السعر الأعلى بأثر رجعي.')}
               </p>
             </div>
 
@@ -429,12 +513,12 @@ export function DashboardClient() {
               <div className="flex items-center justify-between">
                 <span className="font-label-sm text-label-sm font-bold text-primary flex items-center gap-1">
                   <AppIcon name="check_circle" className="text-primary" size={16} />
-                  بعد تركيب الطاقة الشمسية
+                  {t('بعد تركيب الطاقة الشمسية')}
                 </span>
-                <span className="font-label-sm text-label-sm text-primary font-bold">نظام المقاصة (Net Metering)</span>
+                <span className="font-label-sm text-label-sm text-primary font-bold">{t('نظام المقاصة (Net Metering)')}</span>
               </div>
               <p className="font-body-sm text-body-sm text-on-surface-variant">
-                النزول للشريحة الأولى الأقل تكلفة، وفائض الإنتاج النهاري يتم احتسابه كرصيد دائن مع شركة الكهرباء ينزل في فاتورة الشتاء.
+                {t('النزول للشريحة الأولى الأقل تكلفة، وفائض الإنتاج النهاري يتم احتسابه كرصيد دائن مع شركة الكهرباء ينزل في فاتورة الشتاء.')}
               </p>
             </div>
 
@@ -444,10 +528,12 @@ export function DashboardClient() {
                 <AppIcon name="eco" size={20} />
               </div>
               <div className="flex flex-col">
-                <span className="font-label-md text-label-md text-on-surface font-semibold">بصمتك البيئية الخضراء</span>
+                <span className="font-label-md text-label-md text-on-surface font-semibold">{t('بصمتك البيئية الخضراء')}</span>
                 <span className="font-body-sm text-body-sm text-on-surface-variant">
-                  وفرت <strong className="text-primary font-bold">{solarResult.co2ReductionTons.toFixed(1)} طن</strong> كربون سنويًا — يعادل زراعة{' '}
-                  <strong className="text-primary font-bold">{Math.round(solarResult.co2ReductionTons * 45)} شجرة</strong> بالحي! 🌳
+                  {t('وفرت {tons} طن كربون سنويًا — يعادل زراعة {trees} شجرة بالحي! 🌳', {
+                    tons: formatNumber(Number(solarResult.co2ReductionTons.toFixed(1))),
+                    trees: formatNumber(Math.round(solarResult.co2ReductionTons * 45)),
+                  })}
                 </span>
               </div>
             </div>
@@ -461,9 +547,9 @@ export function DashboardClient() {
           <AppIcon name="handshake" size={22} />
         </div>
         <div className="flex flex-col">
-          <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">ضمان أداء ٢٥ سنة</span>
+          <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">{t('ضمان أداء ٢٥ سنة')}</span>
           <span className="font-body-sm text-body-sm text-on-surface-variant">
-            الألواح الشمسية معتمدة من هيئة الطاقة الجديدة والمتجددة (NREA) ومطابقة للمواصفات القياسية المصرية.
+            {t('الألواح الشمسية معتمدة من هيئة الطاقة الجديدة والمتجددة (NREA) ومطابقة للمواصفات القياسية المصرية.')}
           </span>
         </div>
       </div>
@@ -473,16 +559,16 @@ export function DashboardClient() {
         <button
           type="button"
           onClick={() => setShowProjections(!showProjections)}
-          className="w-full flex items-center justify-between text-right cursor-pointer"
+          className="w-full flex items-center justify-between text-start cursor-pointer"
         >
           <div className="flex items-center gap-3">
             <AppIcon name="table_chart" className="text-primary" size={22} />
             <div className="flex flex-col">
               <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-                جدول التدفقات النقدية (٢٥ سنة)
+                {t('جدول التدفقات النقدية (٢٥ سنة)')}
               </span>
               <span className="font-label-sm text-label-sm text-on-surface-variant">
-                معدل زيادة التعريفة ٨٪ سنوياً
+                {t('معدل زيادة التعريفة ٨٪ سنوياً')}
               </span>
             </div>
           </div>
@@ -495,14 +581,14 @@ export function DashboardClient() {
 
         {showProjections && (
           <div className="mt-3 pt-3 border-t border-surface-container-high overflow-x-auto">
-            <table className="w-full text-xs text-right text-on-surface">
+            <table className="w-full text-xs text-start text-on-surface">
               <thead className="bg-surface-container text-on-surface font-bold">
                 <tr>
-                  <th className="p-2">السنة</th>
-                  <th className="p-2">بدون طاقة</th>
-                  <th className="p-2">بالطاقة</th>
-                  <th className="p-2 text-primary">الوفر</th>
-                  <th className="p-2 text-tertiary">التراكمي</th>
+                  <th className="p-2">{t('السنة')}</th>
+                  <th className="p-2">{t('بدون طاقة')}</th>
+                  <th className="p-2">{t('بالطاقة')}</th>
+                  <th className="p-2 text-primary">{t('الوفر')}</th>
+                  <th className="p-2 text-tertiary">{t('التراكمي')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container">
@@ -511,11 +597,11 @@ export function DashboardClient() {
                   if (!cf) return null;
                   return (
                     <tr key={yr} className="hover:bg-surface-container-low">
-                      <td className="p-2 font-bold">{cf.year}</td>
-                      <td className="p-2">{cf.gridCostWithoutSolarEgp.toLocaleString('ar-EG')}</td>
-                      <td className="p-2">{cf.gridCostWithSolarEgp.toLocaleString('ar-EG')}</td>
-                      <td className="p-2 text-primary font-bold">+{cf.annualSavingsEgp.toLocaleString('ar-EG')}</td>
-                      <td className="p-2 text-tertiary font-bold">{cf.cumulativeSavingsEgp.toLocaleString('ar-EG')}</td>
+                      <td className="p-2 font-bold">{formatNumber(cf.year)}</td>
+                      <td className="p-2">{formatNumber(Math.round(cf.gridCostWithoutSolarEgp))}</td>
+                      <td className="p-2">{formatNumber(Math.round(cf.gridCostWithSolarEgp))}</td>
+                      <td className="p-2 text-primary font-bold">+{formatNumber(Math.round(cf.annualSavingsEgp))}</td>
+                      <td className="p-2 text-tertiary font-bold">{formatNumber(Math.round(cf.cumulativeSavingsEgp))}</td>
                     </tr>
                   );
                 })}
@@ -525,6 +611,9 @@ export function DashboardClient() {
         )}
       </div>
 
+      {/* Saved calculations from the user's Firebase account */}
+      <SavedCalculations />
+
       {/* Action Stack */}
       <div className="flex flex-col gap-2.5">
         {/* Primary CTA: Bank Report PDF */}
@@ -533,7 +622,7 @@ export function DashboardClient() {
           className="w-full h-12 rounded-xl bg-primary text-on-primary font-label-lg text-label-lg flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-transform font-bold"
         >
           <AppIcon name="picture_as_pdf" size={20} />
-          <span>حمّل التقرير المعتمد للبنك (PDF)</span>
+          <span>{t('حمّل التقرير المعتمد للبنك (PDF)')}</span>
         </Link>
 
         {/* Secondary CTA: WhatsApp Share */}
@@ -543,7 +632,7 @@ export function DashboardClient() {
           className="w-full h-12 rounded-xl bg-secondary-container text-on-secondary-container font-label-lg text-label-lg flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-transform font-bold cursor-pointer"
         >
           <AppIcon name="share" size={20} />
-          <span>شارك النتيجة مع الشركاء على واتساب</span>
+          <span>{t('شارك النتيجة مع الشركاء على واتساب')}</span>
         </button>
 
         {/* Ghost Recalculate CTA */}
@@ -553,7 +642,7 @@ export function DashboardClient() {
           className="w-full py-2.5 rounded-lg text-primary font-label-md text-label-md flex items-center justify-center gap-1 active:bg-surface-container-low transition-colors cursor-pointer"
         >
           <AppIcon name="replay" size={18} />
-          <span>تجربة فاتورة تانية أو تعديل أرقام الاستهلاك</span>
+          <span>{t('تجربة فاتورة تانية أو تعديل أرقام الاستهلاك')}</span>
         </button>
       </div>
     </div>

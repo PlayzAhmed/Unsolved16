@@ -117,6 +117,10 @@ body {
   direction: rtl;
   min-height: 100vh;
 }
+html[dir="ltr"] body {
+  direction: ltr;
+  font-family: var(--font-latin);
+}
 body::-webkit-scrollbar { display: none; }
 
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -137,6 +141,25 @@ html {
 
 .font-arabic {
   font-family: var(--font-arabic);
+}
+
+.font-english {
+  font-family: var(--font-latin);
+}
+
+html[dir="ltr"] .font-body-sm,
+html[dir="ltr"] .font-body-md,
+html[dir="ltr"] .font-body-lg,
+html[dir="ltr"] .font-label-sm,
+html[dir="ltr"] .font-label-md,
+html[dir="ltr"] .font-label-lg,
+html[dir="ltr"] .font-headline-sm,
+html[dir="ltr"] .font-headline-md,
+html[dir="ltr"] .font-headline-lg,
+html[dir="ltr"] .font-headline-lg-mobile,
+html[dir="ltr"] .font-display-hero,
+html[dir="ltr"] .font-display-hero-mobile {
+  font-family: var(--font-latin);
 }
 
 .font-numeric-stat-mobile, .font-numeric-stat {

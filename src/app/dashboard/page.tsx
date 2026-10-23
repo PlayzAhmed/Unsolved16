@@ -12,7 +12,7 @@ export const metadata = {
 export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-surface text-on-surface flex flex-col">
-      <Navbar subtitle="Savings Dashboard" />
+      <Navbar subtitle="لوحة التوفير" />
       <main className="flex-1 w-full pt-16 pb-24 px-4 max-w-lg mx-auto">
         <Suspense
           fallback={

@@ -11,6 +11,8 @@ import {
   updateProfile,
 } from 'firebase/auth';
 
+export const AUTH_PROFILE_UPDATED_EVENT = 'energytwin:auth-profile-updated';
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -23,7 +25,6 @@ export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey &&
     firebaseConfig.authDomain &&
     firebaseConfig.projectId &&
-    firebaseConfig.storageBucket &&
     firebaseConfig.appId
 );
 
@@ -46,6 +47,11 @@ export async function createAccount(email: string, password: string, displayName
   const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
   if (displayName?.trim()) {
     await updateProfile(credential.user, { displayName: displayName.trim() });
+    // Refresh so the provider (and /api/profile) sees the new display name.
+    await credential.user.getIdToken(true);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(AUTH_PROFILE_UPDATED_EVENT));
+    }
   }
   return credential.user;
 }

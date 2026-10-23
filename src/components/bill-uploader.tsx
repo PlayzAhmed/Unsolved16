@@ -5,6 +5,7 @@ import type { BillData } from '@/types';
 import { cn } from '@/lib/utils';
 import { calculateKwhFromEgp, calculateEgpFromKwh } from '@/lib/egypt-tariffs';
 import { AppIcon } from '@/components/ui/app-icon';
+import { useI18n } from '@/lib/i18n';
 
 export interface BillUploaderProps {
   monthlySpendEgp: number;
@@ -51,6 +52,7 @@ export function BillUploader({
   onContinue,
   className,
 }: BillUploaderProps) {
+  const { t, formatNumber, isRtl } = useI18n();
   const [isDragging, setIsDragging] = useState(false);
   const [ocrStatus, setOcrStatus] = useState<OcrStatus>('idle');
   const [fileName, setFileName] = useState<string | null>(null);
@@ -92,12 +94,14 @@ export function BillUploader({
         }
       } else {
         setOcrStatus('failed');
-        setOcrWarning(data?.warning || json.error || 'لم نتمكن من قراءة بيانات الفاتورة بوضوح. أدخل القيم يدويًا أو أعد المسح.');
+        setOcrWarning(
+          t(data?.warning || json.error || 'لم نتمكن من قراءة بيانات الفاتورة بوضوح. أدخل القيم يدويًا أو أعد المسح.')
+        );
         setManualOpen(true);
       }
     } catch {
       setOcrStatus('failed');
-      setOcrWarning('تعذر الاتصال بخدمة قراءة الفاتورة. أدخل القيم يدويًا أو أعد المسح.');
+      setOcrWarning(t('تعذر الاتصال بخدمة قراءة الفاتورة. أدخل القيم يدويًا أو أعد المسح.'));
       setManualOpen(true);
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -121,7 +125,7 @@ export function BillUploader({
   const selectDemoProfile = (demo: (typeof DEMO_BILLS)[0]) => {
     setOcrStatus('success');
     setOcrWarning(null);
-    setFileName(`فاتورة_${demo.name}.pdf`);
+    setFileName(`${t('فاتورة')}_${t(demo.name)}.pdf`);
     setParsedMeter(demo.meter);
     onSpendChange(demo.spend);
     onKwhChange(demo.kwh);
@@ -143,21 +147,21 @@ export function BillUploader({
       )}
     >
       {/* Glow Ambient Sun Accent */}
-      <div className="absolute -top-16 -left-16 w-36 h-36 bg-secondary-fixed/40 rounded-full blur-2xl pointer-events-none"></div>
+      <div className="absolute -top-16 -start-16 w-36 h-36 bg-secondary-fixed/40 rounded-full blur-2xl pointer-events-none"></div>
 
       {/* Upload Area Header */}
       <div className="flex items-start justify-between gap-2 relative z-10">
         <div className="flex flex-col">
           <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold flex items-center gap-1.5">
-            <span>صوّر الفاتورة بموبايلك</span>
+            <span>{t('صوّر الفاتورة بموبايلك')}</span>
             <AppIcon name="photo_camera" className="text-tertiary" size={20} />
           </h2>
           <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-            الذكاء الاصطناعي هيقرأ الكيلووات وقيمة الشريحة آلياً
+            {t('الذكاء الاصطناعي هيقرأ الكيلووات وقيمة الشريحة آلياً')}
           </p>
         </div>
         <span className="px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-bold shrink-0">
-          ذكاء اصطناعي فوري
+          {t('ذكاء اصطناعي فوري')}
         </span>
       </div>
 
@@ -180,7 +184,7 @@ export function BillUploader({
         <input
           ref={fileInputRef}
           accept="image/*,.pdf"
-          aria-label="تحميل صورة الفاتورة"
+          aria-label={t('تحميل صورة الفاتورة')}
           className="hidden"
           type="file"
           onChange={handleFileChange}
@@ -190,10 +194,10 @@ export function BillUploader({
           <div className="flex flex-col items-center justify-center py-4">
             <AppIcon name="refresh" className="text-primary animate-spin mb-2" size={36} />
             <p className="font-headline-sm text-headline-sm text-on-surface font-bold">
-              بنقرأ الفاتورة… دقيقة واحدة بس ⏳
+              {t('بنقرأ الفاتورة… دقيقة واحدة بس ⏳')}
             </p>
             <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">
-              بنستخرج رقم العداد، شريحة الاستهلاك، وإجمالي المبلغ
+              {t('بنستخرج رقم العداد، شريحة الاستهلاك، وإجمالي المبلغ')}
             </p>
           </div>
         ) : (
@@ -204,15 +208,15 @@ export function BillUploader({
               <AppIcon name="document_scanner" className="text-on-secondary-container" size={30} />
             </div>
             <span className="font-headline-sm text-headline-sm text-on-surface font-semibold mb-1">
-              اضغط للتصوير أو اختيار صورة
+              {t('اضغط للتصوير أو اختيار صورة')}
             </span>
             <span className="font-body-sm text-body-sm text-on-surface-variant max-w-[280px]">
-              فاتورة ورقية أو إيصال سداد إلكتروني (فوري، خالص، كارت ذكي)
+              {t('فاتورة ورقية أو إيصال سداد إلكتروني (فوري، خالص، كارت ذكي)')}
             </span>
             {/* Accepted formats hint */}
             <div className="mt-2 flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
               <AppIcon name="image" size={16} />
-              <span>يدعم JPG, PNG, PDF حتي 10 ميجابايت</span>
+              <span>{t('يدعم JPG, PNG, PDF حتي 10 ميجابايت')}</span>
             </div>
           </>
         )}
@@ -221,7 +225,7 @@ export function BillUploader({
       {ocrStatus === 'idle' && (
         <div className="w-full rounded-xl bg-surface p-3 shadow-sm flex items-center gap-2 text-on-surface-variant">
           <AppIcon name="document_scanner" className="text-primary" size={20} />
-          <span className="font-label-md text-label-md">ارفع فاتورة لبدء القراءة التلقائية، أو أدخل القيم يدويًا.</span>
+          <span className="font-label-md text-label-md">{t('ارفع فاتورة لبدء القراءة التلقائية، أو أدخل القيم يدويًا.')}</span>
         </div>
       )}
 
@@ -230,7 +234,7 @@ export function BillUploader({
           <div className="flex items-start gap-2 text-on-error-container">
             <AppIcon name="error" className="shrink-0 mt-0.5" size={20} />
             <div>
-              <p className="font-label-md text-label-md font-bold">لم تكتمل قراءة الفاتورة</p>
+              <p className="font-label-md text-label-md font-bold">{t('لم تكتمل قراءة الفاتورة')}</p>
               <p className="font-body-sm text-body-sm mt-0.5">{ocrWarning}</p>
             </div>
           </div>
@@ -239,7 +243,7 @@ export function BillUploader({
             onClick={() => fileInputRef.current?.click()}
             className="self-start rounded-lg bg-surface-container-lowest px-3 py-2 font-label-sm text-label-sm font-bold text-primary hover:bg-surface-container transition-colors"
           >
-            أعد مسح الفاتورة
+            {t('أعد مسح الفاتورة')}
           </button>
         </div>
       )}
@@ -251,11 +255,13 @@ export function BillUploader({
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-primary"></span>
             <span className="font-label-md text-label-md font-bold text-on-surface">
-              {fileName ? `الفاتورة المقروءة: ${fileName}` : 'معاينة الفحص المكتشف'}
+              {fileName
+                ? t('الفاتورة المقروءة: {fileName}', { fileName })
+                : t('معاينة الفحص المكتشف')}
             </span>
           </div>
           <span className="font-label-sm text-label-sm text-tertiary font-bold bg-tertiary-fixed/60 px-2 py-0.5 rounded-full">
-            تم التعرف بنجاح
+            {t('تم التعرف بنجاح')}
           </span>
         </div>
 
@@ -267,38 +273,42 @@ export function BillUploader({
           <div className="flex items-center justify-between border-b border-surface-container-high pb-2">
             <div className="flex items-center gap-2">
               <AppIcon name="bolt" className="text-primary" size={20} />
-              <span className="font-label-md text-label-md text-on-surface font-semibold">بيانات قراءة الفاتورة</span>
+              <span className="font-label-md text-label-md text-on-surface font-semibold">{t('بيانات قراءة الفاتورة')}</span>
             </div>
-            <span className="font-label-sm text-label-sm text-on-surface-variant">تم استخراج القيم الأساسية</span>
+            <span className="font-label-sm text-label-sm text-on-surface-variant">{t('تم استخراج القيم الأساسية')}</span>
           </div>
 
           <div className="grid grid-cols-2 gap-2 pt-1">
             <div className="flex flex-col bg-surface-container-low rounded-lg p-2">
-              <span className="font-label-sm text-label-sm text-on-surface-variant">الاستهلاك الشهري</span>
+              <span className="font-label-sm text-label-sm text-on-surface-variant">{t('الاستهلاك الشهري')}</span>
               <div className="flex items-baseline gap-1 mt-0.5">
                 <span className="font-numeric-stat-mobile text-numeric-stat-mobile text-on-surface font-bold">
-                  {Math.round(monthlyKwh).toLocaleString('ar-EG')}
+                  {formatNumber(Math.round(monthlyKwh))}
                 </span>
-                <span className="font-label-sm text-label-sm text-on-surface-variant">ك.و.س</span>
+                <span className="font-label-sm text-label-sm text-on-surface-variant">{t('ك.و.س')}</span>
               </div>
             </div>
 
             <div className="flex flex-col bg-surface-container-low rounded-lg p-2">
-              <span className="font-label-sm text-label-sm text-on-surface-variant">القيمة الإجمالية</span>
+              <span className="font-label-sm text-label-sm text-on-surface-variant">{t('القيمة الإجمالية')}</span>
               <div className="flex items-baseline gap-1 mt-0.5">
                 <span className="font-numeric-stat-mobile text-numeric-stat-mobile text-primary font-bold">
-                  {Math.round(monthlySpendEgp).toLocaleString('ar-EG')}
+                  {formatNumber(Math.round(monthlySpendEgp))}
                 </span>
-                <span className="font-label-sm text-label-sm text-primary font-bold">ج.م</span>
+                <span className="font-label-sm text-label-sm text-primary font-bold">{t('ج.م')}</span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center justify-between pt-1 text-on-surface-variant font-label-sm text-label-sm">
-            <span>{parsedMeter ? `رقم العداد: ${parsedMeter}` : 'لم يتم العثور على رقم العداد'}</span>
+            <span>
+              {parsedMeter
+                ? t('رقم العداد: {meter}', { meter: parsedMeter })
+                : t('لم يتم العثور على رقم العداد')}
+            </span>
             <span className="text-primary font-bold flex items-center gap-0.5">
               <AppIcon name="check_circle" size={16} />
-              قراءة مكتملة
+              {t('قراءة مكتملة')}
             </span>
           </div>
         </div>
@@ -308,7 +318,7 @@ export function BillUploader({
       {/* Preset Demo Profiles */}
       <div className="flex flex-col gap-1.5">
         <span className="font-label-sm text-label-sm text-on-surface-variant font-bold">
-          أو جرّب مباشرة بنماذج فواتير سابقة:
+          {t('أو جرّب مباشرة بنماذج فواتير سابقة:')}
         </span>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {DEMO_BILLS.map((demo) => (
@@ -316,13 +326,13 @@ export function BillUploader({
               key={demo.meter}
               type="button"
               onClick={() => selectDemoProfile(demo)}
-              className="text-right p-2.5 rounded-lg border border-primary/20 bg-surface-container-low hover:bg-surface-container border-s-4 border-s-primary transition-all text-on-surface cursor-pointer"
+              className="text-start p-2.5 rounded-lg border border-primary/20 bg-surface-container-low hover:bg-surface-container border-s-4 border-s-primary transition-all text-on-surface cursor-pointer"
             >
-              <div className="font-label-sm text-label-sm font-bold text-on-surface">{demo.name}</div>
+              <div className="font-label-sm text-label-sm font-bold text-on-surface">{t(demo.name)}</div>
               <div className="text-[12px] text-primary font-bold mt-0.5">
-                {demo.spend.toLocaleString('ar-EG')} ج.م / شهر
+                {t('{spend} ج.م / شهر', { spend: formatNumber(demo.spend) })}
               </div>
-              <div className="text-[10px] text-on-surface-variant">{demo.desc}</div>
+              <div className="text-[10px] text-on-surface-variant">{t(demo.desc)}</div>
             </button>
           ))}
         </div>
@@ -337,7 +347,7 @@ export function BillUploader({
         >
           <span className="flex items-center gap-1.5 font-bold">
             <AppIcon name="edit_note" className="text-tertiary" size={18} />
-            مش عايز تصوّر؟ اكتب القيمة يدويًا ✍️
+            {t('مش عايز تصوّر؟ اكتب القيمة يدويًا ✍️')}
           </span>
           <AppIcon
             name="expand_more"
@@ -351,12 +361,12 @@ export function BillUploader({
             <div className="grid grid-cols-2 gap-2">
               <div className="flex flex-col gap-1">
                 <label className="font-label-sm text-label-sm text-on-surface-variant font-medium">
-                  فاتورة الكهربا (ج.م)
+                  {t('فاتورة الكهربا (ج.م)')}
                 </label>
                 <div className="relative flex items-center">
                   <input
-                    className="w-full h-11 bg-surface-container rounded-lg px-3 text-on-surface font-bold text-[15px] outline-none focus:bg-surface-container-lowest transition-colors pl-12 text-right"
-                    placeholder="مثلاً 4000"
+                    className="w-full h-11 bg-surface-container rounded-lg px-3 text-on-surface font-bold text-[15px] outline-none focus:bg-surface-container-lowest transition-colors pe-12 text-start"
+                    placeholder={t('مثلاً 4000')}
                     type="number"
                     value={monthlySpendEgp || ''}
                     onChange={(e) => {
@@ -365,20 +375,20 @@ export function BillUploader({
                       onKwhChange(calculateKwhFromEgp(val));
                     }}
                   />
-                  <span className="absolute left-3 text-on-surface-variant font-label-sm text-label-sm pointer-events-none">
-                    ج.م
+                  <span className="absolute end-3 text-on-surface-variant font-label-sm text-label-sm pointer-events-none">
+                    {t('ج.م')}
                   </span>
                 </div>
               </div>
 
               <div className="flex flex-col gap-1">
                 <label className="font-label-sm text-label-sm text-on-surface-variant font-medium">
-                  الاستهلاك (كيلووات)
+                  {t('الاستهلاك (كيلووات)')}
                 </label>
                 <div className="relative flex items-center">
                   <input
-                    className="w-full h-11 bg-surface-container rounded-lg px-3 text-on-surface font-bold text-[15px] outline-none focus:bg-surface-container-lowest transition-colors pl-14 text-right"
-                    placeholder="مثلاً 1450"
+                    className="w-full h-11 bg-surface-container rounded-lg px-3 text-on-surface font-bold text-[15px] outline-none focus:bg-surface-container-lowest transition-colors pe-14 text-start"
+                    placeholder={t('مثلاً 1450')}
                     type="number"
                     value={Math.round(monthlyKwh) || ''}
                     onChange={(e) => {
@@ -387,8 +397,8 @@ export function BillUploader({
                       onSpendChange(calculateEgpFromKwh(val));
                     }}
                   />
-                  <span className="absolute left-3 text-on-surface-variant font-label-sm text-label-sm pointer-events-none">
-                    ك.و.س
+                  <span className="absolute end-3 text-on-surface-variant font-label-sm text-label-sm pointer-events-none">
+                    {t('ك.و.س')}
                   </span>
                 </div>
               </div>
@@ -403,12 +413,12 @@ export function BillUploader({
         onClick={() => onContinue && onContinue()}
         className="w-full h-14 rounded-full bg-gradient-to-r from-secondary-container via-secondary-fixed to-secondary-container text-on-secondary-container font-headline-sm text-headline-sm font-bold flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-transform mt-1 cursor-pointer"
       >
-        <span>كمّل لفحص سقف المحل</span>
-        <AppIcon name="arrow_back" size={24} />
+        <span>{t('كمّل لفحص سقف المحل')}</span>
+        <AppIcon name={isRtl ? 'arrow_back' : 'arrow_forward'} size={24} />
       </button>
 
       <div className="text-center font-label-sm text-label-sm text-on-surface-variant -mt-1">
-        ⚡ لن يتم خصم أو طلب أي بيانات بنكية إطلاقاً
+        {t('⚡ لن يتم خصم أو طلب أي بيانات بنكية إطلاقاً')}
       </div>
     </div>
   );

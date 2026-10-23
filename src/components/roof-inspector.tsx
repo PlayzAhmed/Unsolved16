@@ -23,6 +23,7 @@ import {
 } from '@/lib/satellite-map';
 import { cn } from '@/lib/utils';
 import { AppIcon } from '@/components/ui/app-icon';
+import { useI18n } from '@/lib/i18n';
 import {
   DEFAULT_ROOF_UTILIZATION_FACTOR,
   calculateUsableRoofArea,
@@ -208,6 +209,7 @@ export function RoofInspector({
   onBack,
   className,
 }: RoofInspectorProps) {
+  const { t, formatNumber, isRtl } = useI18n();
   const [address, setAddress] = useState('');
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -1031,7 +1033,7 @@ export function RoofInspector({
       coords: { lat: number; lng: number },
       notice: string | null
     ) => {
-      setAddress('جاري تحديد عنوان موقعك...');
+      setAddress(t('جاري تحديد عنوان موقعك...'));
       const resolved = await fetchGeocode('', coords, {
         reverse: true,
         updateAddress: true,
@@ -1119,7 +1121,7 @@ export function RoofInspector({
             lng: position.coords.longitude,
           },
           Number.isFinite(accuracyMeters) && accuracyMeters > 500
-            ? `دقة الموقع منخفضة (حوالي ${Math.round(accuracyMeters / 1000)} كم)، لذلك قد لا يكون السطح على المبنى الصحيح. اضغط «إعادة المحاولة» أو عدّل الموقع على الخريطة.`
+            ? 'دقة الموقع منخفضة، لذلك قد لا يكون السطح على المبنى الصحيح. اضغط «إعادة المحاولة» أو عدّل الموقع على الخريطة.'
             : null
         );
       };
@@ -1255,7 +1257,7 @@ export function RoofInspector({
           <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-on-primary">
             <AppIcon name="check" size={14} />
           </div>
-          <span className="font-label-sm text-label-sm text-on-surface font-semibold">قراءة الفاتورة</span>
+          <span className="font-label-sm text-label-sm text-on-surface font-semibold">{t('قراءة الفاتورة')}</span>
         </button>
 
         {/* Connector 1 */}
@@ -1266,7 +1268,7 @@ export function RoofInspector({
           <div className="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center text-on-primary">
             <AppIcon name="my_location" size={14} />
           </div>
-          <span className="font-label-sm text-label-sm text-primary font-bold">فحص السطح (الآن)</span>
+          <span className="font-label-sm text-label-sm text-primary font-bold">{t('فحص السطح (الآن)')}</span>
         </div>
 
         {/* Connector 2 */}
@@ -1275,9 +1277,9 @@ export function RoofInspector({
         {/* Step 3 Upcoming */}
         <div className="flex items-center gap-1.5 shrink-0 opacity-50">
           <div className="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant font-label-sm text-label-sm font-bold">
-            ٣
+            {formatNumber(3)}
           </div>
-          <span className="font-label-sm text-label-sm text-on-surface-variant font-medium">النتائج والتوفير</span>
+          <span className="font-label-sm text-label-sm text-on-surface-variant font-medium">{t('النتائج والتوفير')}</span>
         </div>
       </div>
 
@@ -1288,11 +1290,13 @@ export function RoofInspector({
             <AppIcon name="receipt_long" size={18} />
           </div>
           <div className="truncate">
-            <p className="font-label-sm text-label-sm text-on-surface-variant">الفاتورة المكتشفة بالذكاء الاصطناعي</p>
+            <p className="font-label-sm text-label-sm text-on-surface-variant">
+              {t('الفاتورة المكتشفة بالذكاء الاصطناعي')}
+            </p>
             <p className="font-label-md text-label-md text-on-surface font-bold truncate">
-              {monthlySpendEgp.toLocaleString('ar-EG')} ج.م / شهر{' '}
+              {t('{spend} ج.م / شهر', { spend: formatNumber(monthlySpendEgp) })}{' '}
               <span className="font-label-sm text-label-sm text-tertiary font-normal">
-                (شريحة تجارية أعلى من ١٠٠٠ ك.و)
+                {t('(شريحة تجارية أعلى من ١٠٠٠ ك.و)')}
               </span>
             </p>
           </div>
@@ -1303,7 +1307,7 @@ export function RoofInspector({
           className="px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm shrink-0 flex items-center gap-1 active:bg-surface-container-highest transition-colors cursor-pointer"
         >
           <AppIcon name="edit" size={14} />
-          <span>تعديل</span>
+          <span>{t('تعديل')}</span>
         </button>
       </div>
 
@@ -1312,11 +1316,11 @@ export function RoofInspector({
         <div className="flex items-center justify-between">
           <label className="font-label-lg text-label-lg text-on-surface font-bold flex items-center gap-1.5">
             <AppIcon name="storefront" className="text-primary" size={20} />
-            <span>عنوان المحل أو الورشة</span>
+            <span>{t('عنوان المحل أو الورشة')}</span>
           </label>
           <span className="font-label-sm text-label-sm text-primary font-semibold flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-            تحديد تلقائي
+            {t('تحديد تلقائي')}
           </span>
         </div>
 
@@ -1336,13 +1340,13 @@ export function RoofInspector({
               aria-busy={isLoadingSuggestions || isLocating}
               aria-controls="address-suggestions-list"
               aria-expanded={showSuggestions}
-              aria-label="البحث عن عنوان أو استخدام موقعك الحالي"
+              aria-label={t('البحث عن عنوان أو استخدام موقعك الحالي')}
               autoComplete="off"
               dir="auto"
               enterKeyHint="search"
               spellCheck={false}
               className="bg-transparent border-0 outline-none w-full font-body-md text-body-md text-on-surface placeholder:text-outline font-medium"
-              placeholder="ابحث باسم الشارع أو الحي..."
+              placeholder={t('ابحث باسم الشارع أو الحي...')}
               type="text"
               value={address}
               onChange={(e) => {
@@ -1392,8 +1396,8 @@ export function RoofInspector({
               type="button"
               onClick={handleUseCurrentLocation}
               disabled={isLocating}
-              title="استخدم موقعي الحالي"
-              aria-label="استخدم موقعي الحالي"
+              title={t('استخدم موقعي الحالي')}
+              aria-label={t('استخدم موقعي الحالي')}
               className={cn(
                 'shrink-0 rounded-lg p-1.5 mr-1 transition-colors',
                 isLocating
@@ -1420,8 +1424,8 @@ export function RoofInspector({
                   setLocationNotice(null);
                   addressInputRef.current?.focus();
                 }}
-                aria-label="مسح البحث"
-                title="مسح البحث"
+                aria-label={t('مسح البحث')}
+                title={t('مسح البحث')}
                 className="text-outline hover:text-on-surface p-1 mr-1 cursor-pointer"
               >
                 <AppIcon name="close" size={16} />
@@ -1451,10 +1455,10 @@ export function RoofInspector({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block font-label-md text-label-md font-semibold text-on-surface">
-                      {isLocating ? 'جاري تحديد موقعك...' : 'استخدم موقعي الحالي'}
+                      {isLocating ? t('جاري تحديد موقعك...') : t('استخدم موقعي الحالي')}
                     </span>
                     <span className="block truncate font-label-sm text-label-sm text-on-surface-variant">
-                      تحديد الموقع عبر GPS والمتصفح ثم قراءة العنوان تلقائيًا
+                      {t('تحديد الموقع عبر GPS والمتصفح ثم قراءة العنوان تلقائيًا')}
                     </span>
                   </span>
                   {!isLocating && (
@@ -1467,7 +1471,7 @@ export function RoofInspector({
                 {isLoadingSuggestions ? (
                   <div className="flex items-center gap-2 px-3 py-3 text-on-surface-variant font-label-sm text-label-sm">
                     <AppIcon name="refresh" className="animate-spin" size={16} />
-                    <span>جاري البحث عن اقتراحات...</span>
+                    <span>{t('جاري البحث عن اقتراحات...')}</span>
                   </div>
                 ) : suggestions.length > 0 ? (
                   <>
@@ -1475,16 +1479,16 @@ export function RoofInspector({
                       <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
                         <AppIcon name="warning" className="mt-0.5 text-amber-600" size={15} />
                         <span className="font-label-sm text-label-sm leading-relaxed">
-                          {suggestionsNotice}
+                          {t(suggestionsNotice)}
                         </span>
                       </div>
                     )}
                     <div className="flex items-center justify-between border-b border-outline-variant/30 bg-surface-container-low px-3 py-2">
                       <span className="font-label-sm text-label-sm font-bold text-on-surface">
-                        اقتراحات المواقع
+                        {t('اقتراحات المواقع')}
                       </span>
                       <span className="font-label-sm text-label-sm text-on-surface-variant">
-                        Enter للاختيار
+                        {t('Enter للاختيار')}
                       </span>
                     </div>
                     <ul className="max-h-64 overflow-y-auto">
@@ -1527,12 +1531,12 @@ export function RoofInspector({
                             </span>
                             <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 font-label-sm text-label-sm text-on-surface-variant">
                               {item.category === 'industrial'
-                                ? 'صناعي'
+                                ? t('صناعي')
                                 : item.category === 'hub'
-                                  ? 'مجمع'
+                                  ? t('مجمع')
                                   : item.category === 'general'
-                                    ? 'موقع'
-                                    : 'تجاري'}
+                                    ? t('موقع')
+                                    : t('تجاري')}
                             </span>
                           </button>
                         </li>
@@ -1543,7 +1547,7 @@ export function RoofInspector({
                       onClick={runCurrentAddressSearch}
                       className="w-full border-t border-outline-variant/30 px-3 py-2 text-right font-label-sm text-label-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer"
                     >
-                      متابعة بالعنوان الحالي
+                      {t('متابعة بالعنوان الحالي')}
                     </button>
                   </>
                 ) : suggestionsNotice ? (
@@ -1551,7 +1555,7 @@ export function RoofInspector({
                     <div className="flex items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-amber-900">
                       <AppIcon name="warning" className="mt-0.5 text-amber-600" size={16} />
                       <p className="font-label-sm text-label-sm leading-relaxed">
-                        {suggestionsNotice}
+                        {t(suggestionsNotice)}
                       </p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -1560,14 +1564,14 @@ export function RoofInspector({
                         onClick={runCurrentAddressSearch}
                         className="rounded-lg bg-surface-container px-2 py-2 font-label-sm text-label-sm font-semibold text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer"
                       >
-                        متابعة بالعنوان
+                        {t('متابعة بالعنوان')}
                       </button>
                       <button
                         type="button"
                         onClick={useDemoFallback}
                         className="rounded-lg bg-primary/10 px-2 py-2 font-label-sm text-label-sm font-semibold text-primary hover:bg-primary/15 transition-colors cursor-pointer"
                       >
-                        استخدام المعادي التجريبي
+                        {t('استخدام المعادي التجريبي')}
                       </button>
                     </div>
                   </div>
@@ -1575,7 +1579,7 @@ export function RoofInspector({
                   <div className="flex items-start gap-2 px-3 py-3 text-on-surface-variant">
                     <AppIcon name="search" className="mt-0.5 text-outline" size={15} />
                     <p className="font-label-sm text-label-sm leading-relaxed">
-                      اكتب حرفين على الأقل لعرض الاقتراحات، أو استخدم موقعك الحالي.
+                      {t('اكتب حرفين على الأقل لعرض الاقتراحات، أو استخدم موقعك الحالي.')}
                     </p>
                   </div>
                 )}
@@ -1602,7 +1606,7 @@ export function RoofInspector({
               size={16}
             />
             <span>
-              {isLocating ? 'جاري تحديد موقعك...' : 'استخدم موقعي الحالي'}
+              {isLocating ? t('جاري تحديد موقعك...') : t('استخدم موقعي الحالي')}
             </span>
           </button>
           <button
@@ -1622,7 +1626,7 @@ export function RoofInspector({
             className="flex items-center gap-1 px-3 py-1.5 bg-surface-container text-on-surface-variant rounded-full font-label-sm text-label-sm shrink-0 active:bg-surface-container-highest transition-colors cursor-pointer"
           >
             <AppIcon name="history" size={15} />
-            <span>ورشة الدقي المركزية</span>
+            <span>{t('ورشة الدقي المركزية')}</span>
           </button>
           <button
             type="button"
@@ -1641,20 +1645,20 @@ export function RoofInspector({
             className="flex items-center gap-1 px-3 py-1.5 bg-surface-container text-on-surface-variant rounded-full font-label-sm text-label-sm shrink-0 active:bg-surface-container-highest transition-colors cursor-pointer"
           >
             <AppIcon name="history" size={15} />
-            <span>المعادي، القاهرة</span>
+            <span>{t('المعادي، القاهرة')}</span>
           </button>
         </div>
 
         {/* Business Name Input */}
         <div className="flex flex-col gap-1 pt-1">
           <label className="font-label-sm text-label-sm text-on-surface-variant font-medium">
-            اسم المنشأة التجارية <span className="text-outline">(اختياري)</span>
+            {t('اسم المنشأة التجارية')} <span className="text-outline">{t('(اختياري)')}</span>
           </label>
           <div className="flex items-center bg-surface-container-low rounded-xl px-3 h-10 shadow-inner">
             <AppIcon name="store" className="text-outline shrink-0 ml-2" size={18} />
             <input
               className="bg-transparent border-0 outline-none w-full font-body-sm text-body-sm text-on-surface placeholder:text-outline"
-              placeholder="مثال: مخبز البركة، ورشة المعادي..."
+              placeholder={t('مثال: مخبز البركة، ورشة المعادي...')}
               type="text"
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
@@ -1669,12 +1673,12 @@ export function RoofInspector({
           >
             <AppIcon name="warning" className="mt-0.5 text-error" size={18} />
             <p className="min-w-0 flex-1 font-label-sm text-label-sm leading-relaxed">
-              {locationError}
+              {t(locationError)}
             </p>
             <button
               type="button"
               onClick={() => setLocationError(null)}
-              aria-label="إغلاق تنبيه الموقع"
+              aria-label={t('إغلاق تنبيه الموقع')}
               className="p-0.5 text-on-error-container/70 hover:text-on-error-container transition-colors cursor-pointer"
             >
               <AppIcon name="close" size={14} />
@@ -1690,7 +1694,7 @@ export function RoofInspector({
             <AppIcon name="near_me" className="mt-0.5 text-primary" size={18} />
             <div className="min-w-0 flex-1 space-y-1.5">
               <p className="font-label-sm text-label-sm leading-relaxed">
-                {locationNotice}
+                {t(locationNotice)}
               </p>
               <button
                 type="button"
@@ -1699,13 +1703,13 @@ export function RoofInspector({
                 className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 font-label-sm text-label-sm font-semibold text-primary transition-colors hover:bg-primary/15 disabled:cursor-wait"
               >
                 <AppIcon name="refresh" size={13} />
-                <span>إعادة المحاولة</span>
+                <span>{t('إعادة المحاولة')}</span>
               </button>
             </div>
             <button
               type="button"
               onClick={() => setLocationNotice(null)}
-              aria-label="إغلاق ملاحظة الموقع"
+              aria-label={t('إغلاق ملاحظة الموقع')}
               className="p-0.5 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
             >
               <AppIcon name="close" size={14} />
@@ -1721,16 +1725,16 @@ export function RoofInspector({
             <AppIcon name="warning" className="mt-0.5 text-amber-600" size={18} />
             <div className="min-w-0 flex-1">
               <p className="font-label-sm text-label-sm font-bold">
-                تحذير: بيانات الموقع تجريبية
+                {t('تحذير: بيانات الموقع تجريبية')}
               </p>
               <p className="font-label-sm text-label-sm leading-relaxed">
-                {fallbackWarning}
+                {t(fallbackWarning)}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setFallbackWarning(null)}
-              aria-label="إغلاق التحذير"
+              aria-label={t('إغلاق التحذير')}
               className="p-0.5 text-amber-700 hover:text-amber-900 transition-colors cursor-pointer"
             >
               <AppIcon name="close" size={14} />
@@ -1745,11 +1749,11 @@ export function RoofInspector({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-secondary-container animate-ping"></div>
-            <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold">المسح بالأقمار الصناعية</h3>
+            <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold">{t('المسح بالأقمار الصناعية')}</h3>
           </div>
           <div className="bg-surface-container px-2.5 py-1 rounded-full flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
             <AppIcon name="satellite_alt" size={14} />
-            <span>{isLoadingGeo ? 'جاري التحديث...' : 'دقة عالية 0.3م'}</span>
+            <span>{isLoadingGeo ? t('جاري التحديث...') : t('دقة عالية 0.3م')}</span>
           </div>
         </div>
 
@@ -1938,7 +1942,7 @@ export function RoofInspector({
           {/* Interactive Micro Pill in Map */}
           <div className="absolute top-3 left-3 pointer-events-none bg-inverse-surface/85 backdrop-blur-md text-inverse-on-surface px-2.5 py-1 rounded-full font-label-sm text-label-sm flex items-center gap-1.5 shadow-md">
             <AppIcon name="wb_sunny" className="text-secondary-fixed" size={14} />
-            <span>إشعاع شمسي ٥.٦ ك.و.س/م²</span>
+            <span>{t('إشعاع شمسي ٥.٦ ك.و.س/م²')}</span>
           </div>
 
           {/* Pulse indicator on Rooftop Center */}
@@ -1958,7 +1962,7 @@ export function RoofInspector({
               <span className="relative inline-flex rounded-full h-4 w-4 bg-secondary-container"></span>
             </span>
             <span className="mt-1 bg-surface-container-lowest/90 backdrop-blur-sm px-2 py-0.5 rounded shadow-sm text-on-surface font-label-sm text-label-sm font-bold">
-              سطح المنشأة المستهدف
+              {t('سطح المنشأة المستهدف')}
             </span>
           </div>
 
@@ -1970,7 +1974,7 @@ export function RoofInspector({
                 cancelMapDrag();
                 setMapTool('pan');
               }}
-              aria-label="سحب وتحريك الخريطة"
+              aria-label={t('سحب وتحريك الخريطة')}
               aria-pressed={mapTool === 'pan'}
               className={cn(
                 'w-8 h-8 rounded-lg shadow flex items-center justify-center cursor-pointer transition-colors',
@@ -1978,7 +1982,7 @@ export function RoofInspector({
                   ? 'bg-primary text-on-primary'
                   : 'bg-surface-container-lowest/90 backdrop-blur-sm text-on-surface active:bg-surface-container'
               )}
-              title="سحب وتحريك الخريطة"
+              title={t('سحب وتحريك الخريطة')}
             >
               <AppIcon name="near_me" size={17} />
             </button>
@@ -1988,7 +1992,7 @@ export function RoofInspector({
                 cancelMapDrag();
                 setMapTool('draw');
               }}
-              aria-label="رسم مستطيل السطح"
+              aria-label={t('رسم مستطيل السطح')}
               aria-pressed={mapTool === 'draw'}
               className={cn(
                 'w-8 h-8 rounded-lg shadow flex items-center justify-center cursor-pointer transition-colors',
@@ -1996,7 +2000,7 @@ export function RoofInspector({
                   ? 'bg-primary text-on-primary'
                   : 'bg-surface-container-lowest/90 backdrop-blur-sm text-on-surface active:bg-surface-container'
               )}
-              title="رسم مستطيل السطح"
+              title={t('رسم مستطيل السطح')}
             >
               <AppIcon name="edit" size={17} />
             </button>
@@ -2007,9 +2011,9 @@ export function RoofInspector({
                   cancelMapDrag();
                   applyPanOffset({ x: 0, y: 0 });
                 }}
-                aria-label="إعادة التمركز على المبنى"
+                aria-label={t('إعادة التمركز على المبنى')}
                 className="w-8 h-8 rounded-lg bg-surface-container-lowest/90 backdrop-blur-sm shadow flex items-center justify-center text-primary cursor-pointer"
-                title="إعادة التمركز على المبنى"
+                title={t('إعادة التمركز على المبنى')}
               >
                 <AppIcon name="my_location" size={17} />
               </button>
@@ -2022,7 +2026,7 @@ export function RoofInspector({
               type="button"
               onClick={() => changeZoom(1)}
               className="w-8 h-8 rounded-lg bg-surface-container-lowest/90 backdrop-blur-sm shadow flex items-center justify-center text-on-surface active:bg-surface-container cursor-pointer"
-              title="تكبير"
+              title={t('تكبير')}
             >
               <AppIcon name="add" size={18} />
             </button>
@@ -2030,7 +2034,7 @@ export function RoofInspector({
               type="button"
               onClick={() => changeZoom(-1)}
               className="w-8 h-8 rounded-lg bg-surface-container-lowest/90 backdrop-blur-sm shadow flex items-center justify-center text-on-surface active:bg-surface-container cursor-pointer"
-              title="تصغير"
+              title={t('تصغير')}
             >
               <AppIcon name="remove" size={18} />
             </button>
@@ -2043,8 +2047,8 @@ export function RoofInspector({
           <AppIcon name={mapTool === 'pan' ? 'near_me' : 'edit'} size={13} />
           <span>
             {mapTool === 'pan'
-              ? 'اسحب الخريطة أو السطح لتحريكه'
-              : 'اسحب لرسم مستطيل السطح'}
+              ? t('اسحب الخريطة أو السطح لتحريكه')
+              : t('اسحب لرسم مستطيل السطح')}
           </span>
         </div>
 
@@ -2054,16 +2058,19 @@ export function RoofInspector({
           <div className="bg-surface-container-low rounded-xl p-2.5 flex flex-col justify-between">
             <div className="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
               <AppIcon name="square_foot" className="text-primary" size={15} />
-              <span>المساحة</span>
+              <span>{t('المساحة')}</span>
             </div>
             <div className="mt-1">
               <span className="font-numeric-stat-mobile text-numeric-stat-mobile text-primary font-bold">
-                {usableAreaM2.toLocaleString('ar-EG')}
+                {formatNumber(usableAreaM2)}
               </span>
-              <span className="font-label-sm text-label-sm text-on-surface-variant mr-0.5">م²</span>
+              <span className="mx-0.5 font-label-sm text-label-sm text-on-surface-variant">{t('م²')}</span>
             </div>
             <span className="font-label-sm text-label-sm text-primary font-semibold mt-0.5">
-              صافي {roofUtilizationPercent.toLocaleString('ar-EG')}٪ من {manualAreaM2.toLocaleString('ar-EG')} م²
+              {t('صافي {percent}٪ من {area} م²', {
+                percent: formatNumber(roofUtilizationPercent),
+                area: formatNumber(manualAreaM2),
+              })}
             </span>
           </div>
 
@@ -2071,27 +2078,27 @@ export function RoofInspector({
           <div className="bg-surface-container-low rounded-xl p-2.5 flex flex-col justify-between">
             <div className="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
               <AppIcon name="bolt" className="text-tertiary" size={15} />
-              <span>القدرة</span>
+              <span>{t('القدرة')}</span>
             </div>
             <div className="mt-1">
               <span className="font-numeric-stat-mobile text-numeric-stat-mobile text-tertiary font-bold">
-                {capacityKw.toLocaleString('ar-EG')}
+                {formatNumber(capacityKw)}
               </span>
-              <span className="font-label-sm text-label-sm text-on-surface-variant mr-0.5">ك.واط</span>
+              <span className="mx-0.5 font-label-sm text-label-sm text-on-surface-variant">{t('ك.واط')}</span>
             </div>
-            <span className="font-label-sm text-label-sm text-tertiary font-semibold mt-0.5">نظام استيعابي</span>
+            <span className="font-label-sm text-label-sm text-tertiary font-semibold mt-0.5">{t('نظام استيعابي')}</span>
           </div>
 
           {/* Metric 3: Sun Angle */}
           <div className="bg-surface-container-low rounded-xl p-2.5 flex flex-col justify-between">
             <div className="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
               <AppIcon name="explore" className="text-secondary" size={15} />
-              <span>التوجيه</span>
+              <span>{t('التوجيه')}</span>
             </div>
             <div className="mt-1">
-              <span className="font-headline-sm text-headline-sm text-secondary font-bold">ممتاز</span>
+              <span className="font-headline-sm text-headline-sm text-secondary font-bold">{t('ممتاز')}</span>
             </div>
-            <span className="font-label-sm text-label-sm text-on-surface-variant mt-0.5">جنوبي بزاوية ٢٨°</span>
+            <span className="font-label-sm text-label-sm text-on-surface-variant mt-0.5">{t('جنوبي بزاوية ٢٨°')}</span>
           </div>
         </div>
 
@@ -2100,15 +2107,15 @@ export function RoofInspector({
           <div className="flex items-center gap-2">
             <AppIcon name="tune" className="text-primary" size={20} />
             <div>
-              <p className="font-label-md text-label-md text-on-surface font-semibold">المساحة غير دقيقة على الخريطة؟</p>
-              <p className="font-label-sm text-label-sm text-on-surface-variant">عدّل مساحة السطح الإجمالية يدويًا</p>
+              <p className="font-label-md text-label-md text-on-surface font-semibold">{t('المساحة غير دقيقة على الخريطة؟')}</p>
+              <p className="font-label-sm text-label-sm text-on-surface-variant">{t('عدّل مساحة السطح الإجمالية يدويًا')}</p>
             </div>
           </div>
 
           {/* Interactive Stepper */}
           <div className="flex items-center bg-surface-container-lowest rounded-full p-1 shadow-sm">
             <button
-              aria-label="تقليل المساحة"
+              aria-label={t('تقليل المساحة')}
               type="button"
               onClick={() => changeManualArea(-10)}
               className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface font-bold active:scale-95 transition-transform cursor-pointer"
@@ -2117,12 +2124,12 @@ export function RoofInspector({
             </button>
             <div className="px-2.5 text-center min-w-[54px]">
               <span className="font-label-lg text-label-lg font-bold text-primary">
-                {manualAreaM2.toLocaleString('ar-EG')}
+                {formatNumber(manualAreaM2)}
               </span>
-              <span className="font-label-sm text-label-sm text-on-surface-variant">م²</span>
+              <span className="font-label-sm text-label-sm text-on-surface-variant">{t('م²')}</span>
             </div>
             <button
-              aria-label="زيادة المساحة"
+              aria-label={t('زيادة المساحة')}
               type="button"
               onClick={() => changeManualArea(10)}
               className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface font-bold active:scale-95 transition-transform cursor-pointer"
@@ -2140,16 +2147,18 @@ export function RoofInspector({
             <AppIcon name="savings" size={22} />
           </div>
           <div>
-            <p className="font-label-sm text-label-sm text-secondary font-semibold">التوفير السنوي المتوقع الأولي</p>
+            <p className="font-label-sm text-label-sm text-secondary font-semibold">{t('التوفير السنوي المتوقع الأولي')}</p>
             <p className="font-headline-sm text-headline-sm text-on-surface font-bold">
-              <span>{teaserSavings.toLocaleString('ar-EG')}</span> ج.م{' '}
-              <span className="font-label-sm text-label-sm font-normal text-on-surface-variant">/ سنة</span>
+              <span>{formatNumber(teaserSavings)}</span> {t('ج.م')}{' '}
+              <span className="font-label-sm text-label-sm font-normal text-on-surface-variant">
+                {t('/ سنة')}
+              </span>
             </p>
           </div>
         </div>
         <div className="text-left">
           <span className="bg-surface-container-lowest text-primary font-label-sm text-label-sm font-bold px-2.5 py-1 rounded-full shadow-sm">
-            فترة استرداد ≈ {paybackYears.toLocaleString('ar-EG')} سنة
+            {t('فترة استرداد ≈ {years} سنة', { years: formatNumber(paybackYears) })}
           </span>
         </div>
       </div>
@@ -2168,13 +2177,13 @@ export function RoofInspector({
           )}
         >
           <AppIcon name="wb_sunny" size={24} />
-          <span>احسب التوفير وافتح لوحة التحكم</span>
-          <AppIcon name="arrow_back" size={20} className="mr-1" />
+          <span>{t('احسب التوفير وافتح لوحة التحكم')}</span>
+          <AppIcon name={isRtl ? 'arrow_back' : 'arrow_forward'} size={20} className="mx-1" />
         </button>
 
         <div className="flex items-center justify-center gap-1.5 text-center text-outline font-label-sm text-label-sm py-1">
           <AppIcon name="verified_user" className="text-primary" size={16} />
-          <span>البيانات مؤمنة ومحسوبة بالتعريفة المصرية المعتمدة لعام ٢٠٢٤</span>
+          <span>{t('البيانات مؤمنة ومحسوبة بالتعريفة المصرية المعتمدة لعام ٢٠٢٤')}</span>
         </div>
       </div>
     </div>

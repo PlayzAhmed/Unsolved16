@@ -5,6 +5,7 @@ import Link from "next/link";
 import { calculateSolarSavings } from "@/lib/solar-calculator";
 import { calculateKwhFromEgp, calculateEgpFromKwh } from "@/lib/egypt-tariffs";
 import type { SolarResult } from "@/types";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import {
   SunMedium,
@@ -29,10 +30,10 @@ export interface SolarCalculatorProps {
 }
 
 const PRESET_SPENDS = [
-  { label: "محل تجاري", spend: 2000, desc: "٢,٠٠٠ ج.م/شهر" },
-  { label: "مخبز أو كافيه", spend: 4500, desc: "٤,٥٠٠ ج.م/شهر" },
-  { label: "عيادة أو مكتب", spend: 9000, desc: "٩,٠٠٠ ج.م/شهر" },
-  { label: "ورشة تصنيع", spend: 18000, desc: "١٨,٠٠٠ ج.م/شهر" },
+  { label: "محل تجاري", spend: 2000 },
+  { label: "مخبز أو كافيه", spend: 4500 },
+  { label: "عيادة أو مكتب", spend: 9000 },
+  { label: "ورشة تصنيع", spend: 18000 },
 ];
 
 const RATIO_PRESETS = [
@@ -50,6 +51,7 @@ export function SolarCalculator({
   showDashboardLink = true,
   onResultChange,
 }: SolarCalculatorProps) {
+  const { t, formatNumber } = useI18n();
   const [monthlySpendEgp, setMonthlySpendEgp] = useState<number>(initialSpendEgp);
   const [monthlyKwh, setMonthlyKwh] = useState<number>(
     initialKwh || calculateKwhFromEgp(initialSpendEgp)
@@ -101,10 +103,10 @@ export function SolarCalculator({
           </div>
           <div>
             <h2 className="text-xl font-black text-teal-deep tracking-tight">
-              حاسبة الجدوى الشمسية
+              {t('حاسبة الجدوى الشمسية')}
             </h2>
             <p className="text-xs text-teal-deep/70 mt-0.5">
-              حسابات رياضية فورية وفقاً للتعريفات التجارية الرسمية للكهرباء بمصر
+              {t('حسابات رياضية فورية وفقاً للتعريفات التجارية الرسمية للكهرباء بمصر')}
             </p>
           </div>
         </div>
@@ -115,7 +117,7 @@ export function SolarCalculator({
           className="inline-flex items-center gap-1.5 self-start sm:self-auto text-xs font-bold text-teal-deep/70 hover:text-teal px-3 py-1.5 rounded-lg border border-teal/20 hover:border-teal bg-sand/60 transition-colors cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          <span>إعادة تعيين</span>
+          <span>{t('إعادة تعيين')}</span>
         </button>
       </div>
 
@@ -125,7 +127,7 @@ export function SolarCalculator({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-teal-deep">
-              فاتورة الكهرباء الشهرية
+              {t('فاتورة الكهرباء الشهرية')}
             </label>
             <div className="flex items-center gap-1.5">
               <input
@@ -137,7 +139,7 @@ export function SolarCalculator({
                 onChange={(e) => handleSpendChange(Number(e.target.value) || 0)}
                 className="w-28 px-2.5 py-1 text-sm font-extrabold text-center bg-sand/60 border border-teal/30 rounded-lg text-teal focus:outline-none focus:border-teal"
               />
-              <span className="text-xs font-bold text-teal-deep">ج.م</span>
+              <span className="text-xs font-bold text-teal-deep">{t('ج.م')}</span>
             </div>
           </div>
 
@@ -165,8 +167,8 @@ export function SolarCalculator({
                     : "bg-sand/40 border-teal/20 text-teal-deep/80 hover:border-teal/50"
                 )}
               >
-                <div className="font-bold">{preset.label}</div>
-                <div className="text-[10px] text-teal-deep/60">{preset.desc}</div>
+                <div className="font-bold">{t(preset.label)}</div>
+                <div className="text-[10px] text-teal-deep/60">{t('{amount} ج.م/شهر', { amount: formatNumber(preset.spend) })}</div>
               </button>
             ))}
           </div>
@@ -176,7 +178,7 @@ export function SolarCalculator({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-teal-deep">
-              الاستهلاك الشهري التقديري
+              {t('الاستهلاك الشهري التقديري')}
             </label>
             <div className="flex items-center gap-1.5">
               <input
@@ -188,15 +190,15 @@ export function SolarCalculator({
                 onChange={(e) => handleKwhChange(Number(e.target.value) || 0)}
                 className="w-24 px-2.5 py-1 text-sm font-extrabold text-center bg-sand/60 border border-teal/30 rounded-lg text-sunset focus:outline-none focus:border-teal"
               />
-              <span className="text-xs font-bold text-teal-deep">ك.و.س</span>
+              <span className="text-xs font-bold text-teal-deep">{t('ك.و.س')}</span>
             </div>
           </div>
 
           <div className="pt-1">
             <div className="flex items-center justify-between text-xs font-bold text-teal-deep mb-2">
-              <span>نسبة التحول المستهدفة للشمس:</span>
+              <span>{t('نسبة التحول المستهدفة للشمس:')}</span>
               <span className="text-teal font-black text-sm">
-                <span dir="ltr">{Math.round(transitionRatio * 100)}%</span>
+                <span dir="ltr">{formatNumber(Math.round(transitionRatio * 100))}%</span>
               </span>
             </div>
 
@@ -223,7 +225,7 @@ export function SolarCalculator({
                       : "bg-sand/40 border-teal/20 text-teal-deep/70 hover:border-teal/50"
                   )}
                 >
-                  {preset.label}
+                  {t(preset.label)}
                 </button>
               ))}
             </div>
@@ -236,10 +238,10 @@ export function SolarCalculator({
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-bold text-teal-deep flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-sunset" />
-            <span>مؤشرات الجدوى المحسوبة</span>
+            <span>{t('مؤشرات الجدوى المحسوبة')}</span>
           </h3>
           <span className="text-xs px-3 py-0.5 rounded-full bg-teal/10 text-teal font-bold border border-teal/20">
-            {solarResult.greenScore}% تغطية خضراء (SDG 7)
+            {t('{score}% تغطية خضراء (SDG 7)', { score: formatNumber(solarResult.greenScore) })}
           </span>
         </div>
 
@@ -248,10 +250,10 @@ export function SolarCalculator({
           <div className="p-3.5 rounded-xl bg-sand/60 border border-teal/15">
             <div className="flex items-center gap-1.5 text-teal-deep/70 text-[11px] font-bold mb-1">
               <Zap className="w-3.5 h-3.5 text-sunset" />
-              القدرة
+              {t('القدرة')}
             </div>
             <div className="text-xl font-black text-teal-deep">
-              <span dir="ltr">{solarResult.systemCapacityKwp.toFixed(2)}</span>{" "}
+              <span dir="ltr">{formatNumber(Number(solarResult.systemCapacityKwp.toFixed(2)))}</span>{" "}
               <span className="text-xs text-sunset font-bold">kWp</span>
             </div>
           </div>
@@ -260,11 +262,11 @@ export function SolarCalculator({
           <div className="p-3.5 rounded-xl bg-sand/60 border border-teal/15">
             <div className="flex items-center gap-1.5 text-teal-deep/70 text-[11px] font-bold mb-1">
               <PiggyBank className="w-3.5 h-3.5 text-teal" />
-              التكلفة
+              {t('التكلفة')}
             </div>
             <div className="text-xl font-black text-teal-deep">
-              <span dir="ltr">{solarResult.initialCostEgp.toLocaleString()}</span>{" "}
-              <span className="text-xs text-teal-deep/70">ج.م</span>
+              <span dir="ltr">{formatNumber(solarResult.initialCostEgp)}</span>{" "}
+              <span className="text-xs text-teal-deep/70">{t('ج.م')}</span>
             </div>
           </div>
 
@@ -272,11 +274,11 @@ export function SolarCalculator({
           <div className="p-3.5 rounded-xl bg-sand/60 border border-teal/15">
             <div className="flex items-center gap-1.5 text-teal-deep/70 text-[11px] font-bold mb-1">
               <TrendingUp className="w-3.5 h-3.5 text-teal" />
-              الوفر الشهري
+              {t('الوفر الشهري')}
             </div>
             <div className="text-xl font-black text-teal">
-              <span dir="ltr">{solarResult.monthlySavingsEgp.toLocaleString()}</span>{" "}
-              <span className="text-xs text-teal">ج.م</span>
+              <span dir="ltr">{formatNumber(solarResult.monthlySavingsEgp)}</span>{" "}
+              <span className="text-xs text-teal">{t('ج.م')}</span>
             </div>
           </div>
 
@@ -284,11 +286,11 @@ export function SolarCalculator({
           <div className="p-3.5 rounded-xl bg-sand/60 border border-teal/15">
             <div className="flex items-center gap-1.5 text-teal-deep/70 text-[11px] font-bold mb-1">
               <Calendar className="w-3.5 h-3.5 text-sunset" />
-              الاسترداد
+              {t('الاسترداد')}
             </div>
             <div className="text-xl font-black text-teal-deep">
-              <span dir="ltr">{solarResult.paybackPeriodYears > 0 ? solarResult.paybackPeriodYears.toFixed(1) : "—"}</span>{" "}
-              <span className="text-xs text-teal">سنين</span>
+              <span dir="ltr">{solarResult.paybackPeriodYears > 0 ? formatNumber(Number(solarResult.paybackPeriodYears.toFixed(1))) : "—"}</span>{" "}
+              <span className="text-xs text-teal">{t('سنين')}</span>
             </div>
           </div>
 
@@ -296,11 +298,11 @@ export function SolarCalculator({
           <div className="p-3.5 rounded-xl bg-sand/60 border border-teal/15">
             <div className="flex items-center gap-1.5 text-teal-deep/70 text-[11px] font-bold mb-1">
               <Maximize2 className="w-3.5 h-3.5 text-teal" />
-              السطح المطلوب
+              {t('السطح المطلوب')}
             </div>
             <div className="text-xl font-black text-teal-deep">
-              <span dir="ltr">{solarResult.roofAreaRequiredM2.toFixed(0)}</span>{" "}
-              <span className="text-xs text-teal-deep/70">م²</span>
+              <span dir="ltr">{formatNumber(Number(solarResult.roofAreaRequiredM2.toFixed(0)))}</span>{" "}
+              <span className="text-xs text-teal-deep/70">{t('م²')}</span>
             </div>
           </div>
 
@@ -308,11 +310,11 @@ export function SolarCalculator({
           <div className="p-3.5 rounded-xl bg-sand/60 border border-teal/15">
             <div className="flex items-center gap-1.5 text-teal-deep/70 text-[11px] font-bold mb-1">
               <Leaf className="w-3.5 h-3.5 text-leaf" />
-              وفر الكربون
+              {t('وفر الكربون')}
             </div>
             <div className="text-xl font-black text-leaf">
-              <span dir="ltr">{solarResult.co2ReductionTons.toFixed(1)}</span>{" "}
-              <span className="text-xs text-leaf">طن/سنة</span>
+              <span dir="ltr">{formatNumber(Number(solarResult.co2ReductionTons.toFixed(1)))}</span>{" "}
+              <span className="text-xs text-leaf">{t('طن/سنة')}</span>
             </div>
           </div>
         </div>
@@ -322,7 +324,7 @@ export function SolarCalculator({
       {showDashboardLink && (
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-teal-deep/70">
           <span>
-            عايز تفحص السطح بالأقمار الصناعية وتطلع تقرير جاهز للبنك؟
+            {t('عايز تفحص السطح بالأقمار الصناعية وتطلع تقرير جاهز للبنك؟')}
           </span>
           <Link
             href={`/dashboard?spend=${monthlySpendEgp}&kwh=${Math.round(
@@ -330,7 +332,7 @@ export function SolarCalculator({
             )}&ratio=${transitionRatio}`}
             className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-teal hover:bg-teal/90 text-white font-bold text-xs transition-colors shrink-0 shadow-xs"
           >
-            <span>انتقل إلى لوحة النتائج الكاملة</span>
+            <span>{t('انتقل إلى لوحة النتائج الكاملة')}</span>
             <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-0 rotate-180" />
           </Link>
         </div>

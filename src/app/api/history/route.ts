@@ -3,8 +3,6 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import { requireFirebaseUser } from '@/lib/firebase/server-auth';
 
-export const runtime = 'nodejs';
-
 interface CalculationInput {
   address: string;
   monthlySpendEgp: number;

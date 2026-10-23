@@ -11,8 +11,8 @@ const nextConfig: NextConfig = {
   /* config options here */
   allowedDevOrigins: lanOrigins,
   serverExternalPackages: ["tesseract.js"],
-  cacheComponents: true,
-  partialPrefetching: true,
+  cacheComponents: false,
+  partialPrefetching: false,
   turbopack: {
     rules: {
       "*.css": {
